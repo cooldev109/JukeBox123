@@ -1,0 +1,145 @@
+
+Job Title: Full-Stack Developer (React, Node.js, Android TV)
+
+Job Overview:
+We are seeking an experienced Full-Stack Developer to build a jukebox system for bars and entertainment venues. The system will enable customers to interact with the jukebox via a Progressive Web App (PWA), allowing them to select and pay for songs. Bar owners will have the ability to remotely manage and monitor their jukeboxes. The backend will handle payment integration, queue management, and real-time updates for song selections.
+
+The project will feature Android TV as the hardware player, which will run the jukebox app and play music and videos locally, even when offline. The system will be scalable to support multiple bars and jukebox machines, with a robust payment and commission system.
+
+Key Responsibilities:
+
+1. Backend Development (Node.js + PostgreSQL):
+- Design and implement the backend system using Node.js and PostgreSQL.
+- Develop RESTful APIs to handle customer interactions, song selection, payment processing, and real-time communication between the frontend and player system.
+- Payment integration: Integrate Pix (for Brazil) and credit card payments (using Stripe or PayPal).
+- Implement real-time features using WebSockets to manage song queue updates, payment status, and player synchronization.
+- Design multi-tenant architecture: Support multiple venues (bars) and their respective machines under a centralized system.
+- Implement a wallet system where customers can top up credits and use them to select songs.
+- Machine monitoring: Track the status of each machine (online/offline, error reports) in real-time.
+- Develop an event-driven system for managing special features like queue skipping, paid silence, and other premium actions.
+
+2. Frontend Development (Customer PWA):
+- Build the customer-facing Progressive Web App (PWA) using React.
+- Implement QR code scanning for customers to access the jukebox interface on their phones.
+- Design the interface for song search (by artist, genre, song) and queue management.
+- Real-time updates: Ensure that the song queue, payment status, and credits are updated in real-time.
+- Payment flow: Allow customers to top up their credits via Pix or credit card, and use these credits to select songs.
+- Provide a smooth, responsive UI for customers across devices (mobile, tablet, desktop).
+- Enable offline functionality to cache the song queue and credits locally, ensuring the jukebox can continue playing even without an internet connection.
+
+3. Android TV Player Development:
+- Develop the Android TV player app that will run on Android TV boxes.
+- Integrate the player app with the backend to receive the song queue, play music, and handle offline playback.
+- Implement offline caching to allow the jukebox to play songs even without an internet connection. The app should be able to cache up to 10–20 songs for offline playback.
+- Ensure that the player can resume playback after a reboot or power failure.
+- Set up heartbeat functionality to communicate with the backend, ensuring that the machine’s status (online/offline) is always tracked.
+- Ensure the player app auto-starts after power loss and seamlessly continues from where it left off.
+
+4. Admin Dashboard for Bar Owners:
+- Develop the admin dashboard for bar owners to manage their jukebox machines remotely.
+- The dashboard should allow owners to:
+  - View the real-time status of their jukebox (online, offline, error).
+  - View revenue statistics (daily, monthly).
+  - Adjust song pricing for the jukebox.
+  - Receive alerts for errors (e.g., payment failure, machine offline).
+  - Track the commission system for affiliates (if implemented).
+
+5. Affiliate System:
+- Develop a simple affiliate program where affiliates (bartenders, servers, etc.) can earn commissions based on customer purchases.
+- Track affiliate commissions: Set commission percentages and durations.
+- Affiliates should be able to view their earned commissions in real-time through the affiliate dashboard.
+
+6. Advanced User Features (Post-MVP):
+- Skip Queue: Allow users to pay extra to skip the line and prioritize their song.
+- Paid Silence: Allow users to pay for silence time (e.g., 1-minute silence for a specific fee).
+- Paid Voice Messages: Users can leave a voice message for a small fee.
+- Paid Reactions: Users can interact with the system by sending emojis (e.g., applause, cheers) for a fee.
+
+7. Testing and Optimization:
+- Unit testing and integration testing for backend, frontend, and Android TV player.
+- Test the offline functionality by simulating network loss and ensuring the jukebox continues to function.
+- Test for recovery after power loss: Ensure the system restarts seamlessly without losing progress.
+- Optimize performance for low-latency song playback and smooth payment transactions.
+- Implement logging and error tracking to monitor the health of the system.
+
+8. Deployment and Maintenance:
+- Set up CI/CD pipelines for automated deployment and testing.
+- Deploy the backend to a cloud provider (AWS, GCP, DigitalOcean).
+- Deploy the PWA to a hosting platform (Netlify, Vercel, etc.).
+- Provide documentation for future updates, bug fixes, and maintenance.
+
+Key Features of the Jukebox System:
+
+1. Customer Interface:
+- Real-time song queue management.
+- QR code access and PWA installation.
+- Pix and credit card payment options.
+- Offline playback using cached songs.
+- Paid premium features (skip queue, silence, reactions).
+
+2. Bar Owner Interface:
+- Machine status (online/offline, errors).
+- Real-time revenue monitoring.
+- Song price control.
+- Alerts for issues (offline, payment failure).
+- Affiliate system and commission tracking.
+
+3. Jukebox Player (Android TV):
+- Offline song caching and playback.
+- Auto-recovery after reboot or power loss.
+- Heartbeat functionality for remote monitoring.
+- Seamless integration with backend for real-time queue and payments.
+
+4. Payment System:
+- Pix and credit card support.
+- Real-time credit management.
+- Prepaid credits or pay-per-song options.
+
+5. Affiliate System:
+- Track affiliate earnings.
+- Commission management for bar owners.
+
+Required Skills:
+
+1. Backend Development:
+- Node.js and Express.js for API development.
+- PostgreSQL for database management.
+- WebSocket for real-time communication.
+- Payment gateway integration (e.g., Pix, Stripe, PayPal).
+- RESTful API development and microservices architecture.
+
+2. Frontend Development:
+- Strong proficiency in React and PWA development.
+- Knowledge of Service Workers and offline caching.
+- Responsive UI design and integration with backend.
+- Real-time data updates (via WebSocket or REST API).
+
+3. Android TV Development:
+- Experience with Kotlin or Java for Android TV apps.
+- Familiarity with ExoPlayer or other media libraries.
+- Knowledge of offline-first architectures and local data storage (e.g., Room DB).
+- Experience with Android TV APIs for managing playback, background tasks, and auto-recovery.
+
+4. Other Skills:
+- Git for version control.
+- Familiarity with Docker (optional, for containerization).
+- Experience with CI/CD pipelines for automated deployment.
+- Strong debugging and testing skills (unit testing, integration testing).
+
+Project Timeline:
+
+Phase 1: MVP Development (8-12 weeks):
+- Backend setup, payment system, PWA, and Android TV player development.
+- Admin dashboard and basic monitoring.
+
+Phase 2: Post-MVP Features (4-6 weeks):
+- Affiliate system, advanced user features (skip queue, silence, reactions), and performance optimizations.
+
+Phase 3: Testing, Optimization, and Deployment (2-4 weeks):
+- Full system testing, bug fixes, and deployment to production.
+
+Compensation:
+Compensation will depend on experience and project scope. It will be based on an hourly rate or a fixed price for the complete project. There will also be opportunities for ongoing maintenance and updates post-launch.
+
+How to Apply:
+Please submit your resume, portfolio, and any relevant project experience. We are looking for a developer who is passionate about creating interactive, real-time applications and can deliver a scalable, stable solution.

@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --jb-bg-primary: #0F0F0F;
+  --jb-bg-secondary: #1A1A2E;
+  --jb-bg-tertiary: #16213E;
+  --jb-accent-green: #00FF00;
+  --jb-accent-purple: #9B00FF;
+  --jb-highlight-pink: #FF0080;
+  --jb-text-primary: #F5F5F5;
+  --jb-text-secondary: #B0B0B0;
+  --jb-gradient-main: linear-gradient(135deg, #0F0F0F 0%, #1A1A2E 50%, #9B00FF 100%);
+  --jb-gradient-card: linear-gradient(145deg, rgba(26,26,46,0.8), rgba(15,15,15,0.9));
+  --jb-glow-green: 0 0 20px rgba(0,255,0,0.3);
+  --jb-glow-purple: 0 0 20px rgba(155,0,255,0.3);
+  --jb-glow-pink: 0 0 20px rgba(255,0,128,0.3);
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--jb-bg-primary);
+    color: var(--jb-text-primary);
+    font-family: 'Inter', 'Poppins', 'Montserrat', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--jb-bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--jb-accent-purple);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--jb-highlight-pink);
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(26, 26, 46, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(155, 0, 255, 0.2);
+  }
+
+  .neon-text-green {
+    text-shadow: 0 0 10px rgba(0, 255, 0, 0.5), 0 0 20px rgba(0, 255, 0, 0.3);
+  }
+
+  .neon-text-purple {
+    text-shadow: 0 0 10px rgba(155, 0, 255, 0.5), 0 0 20px rgba(155, 0, 255, 0.3);
+  }
+
+  .neon-text-pink {
+    text-shadow: 0 0 10px rgba(255, 0, 128, 0.5), 0 0 20px rgba(255, 0, 128, 0.3);
+  }
+
+  .glow-border-green {
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3), inset 0 0 15px rgba(0, 255, 0, 0.1);
+  }
+
+  .glow-border-purple {
+    box-shadow: 0 0 15px rgba(155, 0, 255, 0.3), inset 0 0 15px rgba(155, 0, 255, 0.1);
+  }
+
+  .glow-border-pink {
+    box-shadow: 0 0 15px rgba(255, 0, 128, 0.3), inset 0 0 15px rgba(255, 0, 128, 0.1);
+  }
+}

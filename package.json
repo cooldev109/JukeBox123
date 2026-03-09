@@ -1,0 +1,52 @@
+{
+  "name": "jukebox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Online jukebox platform for bars and entertainment venues",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api & npm run dev:web",
+    "dev:web": "npm run dev --workspace=@jukebox/web",
+    "dev:api": "npm run dev --workspace=@jukebox/api",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=@jukebox/web",
+    "build:api": "npm run build --workspace=@jukebox/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "test": "npm run test --workspaces --if-present",
+    "test:web": "npm run test --workspace=@jukebox/web",
+    "test:api": "npm run test --workspace=@jukebox/api",
+    "db:migrate": "npm run db:migrate --workspace=@jukebox/api",
+    "db:seed": "npm run db:seed --workspace=@jukebox/api",
+    "db:studio": "npm run db:studio --workspace=@jukebox/api",
+    "clean": "npm run clean --workspaces --if-present",
+    "prepare": "husky"
+  },
+  "keywords": [
+    "jukebox",
+    "music",
+    "pwa",
+    "bar",
+    "entertainment"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "husky": "^9.1.7",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3"
+  }
+}

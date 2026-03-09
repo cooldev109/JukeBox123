@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER
+// ============================================
+enum UserRole {
+  ADMIN
+  BAR_OWNER
+  CUSTOMER
+  // Stage 2: EMPLOYEE, AFFILIATE
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String?   @unique
+  phone        String?   @unique
+  name         String
+  role         UserRole  @default(CUSTOMER)
+  passwordHash String?
+  avatar       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  venues       Venue[]       @relation("VenueOwner")
+  queueItems   QueueItem[]
+  transactions Transaction[]
+  wallet       Wallet?
+  playlists    Playlist[]
+  songRequests SongRequest[]
+
+  @@index([role])
+  @@index([email])
+  @@index([phone])
+}
+
+// ============================================
+// VENUE (Bar/Club)
+// ============================================
+enum VenueStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Venue {
+  id          String      @id @default(uuid())
+  code        String      @unique // Short code for customer entry (e.g. "BAR-CARLOS")
+  name        String
+  address     String
+  city        String
+  state       String
+  country     String      @default("BR")
+  ownerId     String
+  timezone    String      @default("America/Sao_Paulo")
+  currency    String      @default("BRL")
+  settings    Json        @default("{}")
+  status      VenueStatus @default(ACTIVE)
+  installDate DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  owner    User      @relation("VenueOwner", fields: [ownerId], references: [id])
+  machines Machine[]
+
+  @@index([ownerId])
+  @@index([city, state])
+  @@index([status])
+}
+
+// ============================================
+// MACHINE (Jukebox Device)
+// ============================================
+enum MachineStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+  // Stage 2: ALERT
+}
+
+model Machine {
+  id               String        @id @default(uuid())
+  venueId          String
+  name             String
+  serialNumber     String        @unique
+  status           MachineStatus @default(OFFLINE)
+  lastHeartbeat    DateTime?
+  ipAddress        String?
+  offlineSongCache String[]      @default([])
+  config           Json          @default("{}")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  venue        Venue         @relation(fields: [venueId], references: [id])
+  queueItems   QueueItem[]
+  transactions Transaction[]
+
+  @@index([venueId])
+  @@index([status])
+  @@index([serialNumber])
+}
+
+// ============================================
+// SONG
+// ============================================
+enum SongFormat {
+  MP3
+  MP4
+}
+
+model Song {
+  id          String     @id @default(uuid())
+  title       String
+  artist      String
+  album       String?
+  genre       String
+  duration    Int        // seconds
+  fileUrl     String
+  videoUrl    String?
+  coverArtUrl String?
+  metadata    Json       @default("{}")
+  fileSize    Int        @default(0) // bytes
+  format      SongFormat @default(MP3)
+  isActive    Boolean    @default(true)
+  playCount   Int        @default(0)
+  addedAt     DateTime   @default(now())
+
+  // Relations
+  queueItems QueueItem[]
+
+  @@index([title, artist])
+  @@index([genre])
+  @@index([artist])
+  @@index([isActive])
+  @@index([playCount(sort: Desc)])
+}
+
+// ============================================
+// QUEUE
+// ============================================
+enum QueueItemStatus {
+  PENDING
+  PLAYING
+  PLAYED
+  SKIPPED
+}
+
+model QueueItem {
+  id            String          @id @default(uuid())
+  machineId     String
+  songId        String
+  userId        String
+  position      Int
+  status        QueueItemStatus @default(PENDING)
+  paidAmount    Float           @default(0)
+  paymentMethod String          @default("PIX")
+  isPriority    Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  playedAt      DateTime?
+
+  // Relations
+  machine Machine @relation(fields: [machineId], references: [id])
+  song    Song    @relation(fields: [songId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([machineId, status])
+  @@index([machineId, position])
+  @@index([userId])
+}
+
+// ============================================
+// TRANSACTION
+// ============================================
+enum TransactionType {
+  CREDIT_PURCHASE
+  SONG_PAYMENT
+  SKIP_QUEUE
+  // Stage 2: SILENCE, VOICE_MSG, REACTION, PHOTO, BIRTHDAY_PACK
+}
+
+enum PaymentMethod {
+  PIX
+  WALLET
+  // Stage 2: CREDIT_CARD, DEBIT_CARD
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Transaction {
+  id               String            @id @default(uuid())
+  userId           String
+  machineId        String?
+  type             TransactionType
+  amount           Float
+  currency         String            @default("BRL")
+  paymentMethod    PaymentMethod
+  status           TransactionStatus @default(PENDING)
+  pixTransactionId String?
+  idempotencyKey   String?           @unique
+  metadata         Json              @default("{}")
+  createdAt        DateTime          @default(now())
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id])
+  machine Machine? @relation(fields: [machineId], references: [id])
+
+  @@index([userId])
+  @@index([machineId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// WALLET
+// ============================================
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Float    @default(0)
+  currency  String   @default("BRL")
+  lastTopUp DateTime?
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ============================================
+// PLAYLIST (Customer Saved Playlists)
+// ============================================
+model Playlist {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  songIds   String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ============================================
+// SONG REQUEST (Customer requests new songs)
+// ============================================
+model SongRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  artist    String
+  notes     String?
+  isHandled Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([isHandled])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// GLOBAL CONFIG
+// ============================================
+model GlobalConfig {
+  id    String @id @default(uuid())
+  key   String @unique
+  value Json
+
+  @@index([key])
+}

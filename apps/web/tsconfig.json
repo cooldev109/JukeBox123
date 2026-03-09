@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@jukebox/shared": ["../../packages/shared/src"],
+      "@jukebox/ui": ["../../packages/ui/src"]
+    }
+  },
+  "include": ["src/**/*", "vite-env.d.ts"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
