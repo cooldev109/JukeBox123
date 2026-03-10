@@ -476,6 +476,87 @@ queueRouter.post(
 );
 
 // ============================================
+// POST /:id/queue/advance — TV player advances to next song (no auth)
+// Called automatically when a song finishes playing on the TV
+// ============================================
+queueRouter.post('/:id/queue/advance', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const machineId = req.params.id as string;
+
+    await findMachineOrThrow(machineId);
+
+    // Find the currently playing item
+    const currentlyPlaying = await prisma.queueItem.findFirst({
+      where: { machineId, status: 'PLAYING' },
+    });
+
+    if (!currentlyPlaying) {
+      return res.json({
+        success: true,
+        data: { skipped: null, nowPlaying: null },
+      });
+    }
+
+    // Find the next pending item
+    const nextInQueue = await prisma.queueItem.findFirst({
+      where: { machineId, status: 'PENDING' },
+      orderBy: { position: 'asc' },
+    });
+
+    // Mark current as PLAYED, advance next to PLAYING
+    await prisma.$transaction(async (tx) => {
+      await tx.queueItem.update({
+        where: { id: currentlyPlaying.id },
+        data: { status: 'PLAYED', playedAt: new Date() },
+      });
+
+      if (nextInQueue) {
+        await tx.queueItem.update({
+          where: { id: nextInQueue.id },
+          data: { status: 'PLAYING', playedAt: new Date() },
+        });
+      }
+    });
+
+    const nowPlaying = nextInQueue
+      ? await prisma.queueItem.findUnique({
+          where: { id: nextInQueue.id },
+          include: {
+            song: {
+              select: {
+                id: true, title: true, artist: true, album: true,
+                genre: true, duration: true, coverArtUrl: true,
+                fileUrl: true, videoUrl: true, format: true,
+              },
+            },
+            user: { select: { id: true, name: true, avatar: true } },
+          },
+        })
+      : null;
+
+    if (nowPlaying) {
+      await prisma.song.update({
+        where: { id: nowPlaying.songId },
+        data: { playCount: { increment: 1 } },
+      });
+    }
+
+    // Emit WebSocket events
+    const io = getIO();
+    const updatedQueue = await getFullQueue(machineId);
+    io.to(`machine:${machineId}`).emit('queue:updated', updatedQueue);
+    io.to(`machine:${machineId}`).emit('queue:now-playing', nowPlaying);
+
+    res.json({
+      success: true,
+      data: { skipped: currentlyPlaying.id, nowPlaying },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // GET /:id/now-playing — Currently playing song
 // ============================================
 queueRouter.get('/:id/now-playing', async (req: Request, res: Response, next: NextFunction) => {

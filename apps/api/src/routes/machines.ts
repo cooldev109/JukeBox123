@@ -259,6 +259,43 @@ machineRouter.put(
 );
 
 // ============================================
+// GET /machines/:id/public — Public machine info for TV player (no auth)
+// ============================================
+machineRouter.get(
+  '/:id/public',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const machineId = req.params.id as string;
+
+      const machine = await prisma.machine.findUnique({
+        where: { id: machineId },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          venue: {
+            select: { id: true, name: true },
+          },
+        },
+      });
+
+      if (!machine) {
+        throw new AppError('Machine not found', 404);
+      }
+
+      res.json({
+        success: true,
+        data: {
+          machine,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================
 // POST /machines/:id/heartbeat — TV player heartbeat
 // Updates lastHeartbeat, ipAddress, status. Emits WebSocket event.
 // ============================================

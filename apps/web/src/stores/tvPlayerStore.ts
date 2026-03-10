@@ -77,7 +77,7 @@ export const useTvPlayerStore = create<TvPlayerState>((set, get) => ({
     const { machineId } = get();
     if (!machineId) return;
     try {
-      const { data } = await api.get(`/machines/${machineId}`);
+      const { data } = await api.get(`/machines/${machineId}/public`);
       const machine = data.data.machine;
       set({
         machineName: machine.name,
@@ -177,7 +177,7 @@ export const useTvPlayerStore = create<TvPlayerState>((set, get) => ({
     // Notify backend that song finished
     const { machineId } = get();
     if (machineId && currentItem) {
-      api.post(`/machines/${machineId}/queue/skip`).catch(() => {});
+      api.post(`/machines/${machineId}/queue/advance`).catch(() => {});
     }
 
     get().saveState();
