@@ -40,6 +40,7 @@ CREATE TABLE "User" (
 -- CreateTable
 CREATE TABLE "Venue" (
     "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "address" TEXT NOT NULL,
     "city" TEXT NOT NULL,
@@ -190,6 +191,9 @@ CREATE INDEX "User_email_idx" ON "User"("email");
 
 -- CreateIndex
 CREATE INDEX "User_phone_idx" ON "User"("phone");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Venue_code_key" ON "Venue"("code");
 
 -- CreateIndex
 CREATE INDEX "Venue_ownerId_idx" ON "Venue"("ownerId");
