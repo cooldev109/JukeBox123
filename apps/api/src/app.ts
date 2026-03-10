@@ -18,9 +18,13 @@ export function createApp() {
 
   // Security
   app.use(helmet());
+  const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+  const origins = corsOrigin.includes(',')
+    ? corsOrigin.split(',').map((o) => o.trim())
+    : corsOrigin;
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+      origin: origins,
       credentials: true,
     }),
   );
@@ -29,7 +33,7 @@ export function createApp() {
   const isDev = process.env.NODE_ENV !== 'production';
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: isDev ? 5000 : 100, // 5000/15min in dev, 100/15min in production
+    max: isDev ? 5000 : 1000, // 5000/15min in dev, 1000/15min in production
     standardHeaders: true,
     legacyHeaders: false,
   });
