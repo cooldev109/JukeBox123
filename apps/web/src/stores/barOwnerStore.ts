@@ -43,6 +43,8 @@ interface Playlist {
 interface BarOwnerState {
   venue: { id: string; code: string; name: string; city: string; settings: VenueSettings | null } | null;
   machine: Machine | null;
+  machines: Machine[];
+  selectedMachineId: string | null;
   queue: QueueItem[];
   transactions: Transaction[];
   playlists: Playlist[];
@@ -55,6 +57,7 @@ interface BarOwnerState {
   fetchQueue: () => Promise<void>;
   fetchTransactions: () => Promise<void>;
   fetchPlaylists: () => Promise<void>;
+  selectMachine: (machineId: string) => void;
   updatePricing: (songPrice: number, priorityPrice: number) => Promise<void>;
   updateSettings: (settings: Partial<VenueSettings>) => Promise<void>;
 }
@@ -62,6 +65,8 @@ interface BarOwnerState {
 export const useBarOwnerStore = create<BarOwnerState>((set, get) => ({
   venue: null,
   machine: null,
+  machines: [],
+  selectedMachineId: null,
   queue: [],
   transactions: [],
   playlists: [],
@@ -86,13 +91,20 @@ export const useBarOwnerStore = create<BarOwnerState>((set, get) => ({
   fetchMachine: async () => {
     try {
       const { data } = await api.get('/machines');
-      const machines = data.data.machines;
-      if (machines.length > 0) {
-        set({ machine: machines[0] });
-      }
+      const machines: Machine[] = data.data.machines;
+      const selectedId = get().selectedMachineId;
+      const selected = selectedId ? machines.find(m => m.id === selectedId) : machines[0];
+      set({ machines, machine: selected || machines[0] || null });
     } catch {
       // No machines
     }
+  },
+
+  selectMachine: (machineId: string) => {
+    const machines = get().machines;
+    const machine = machines.find(m => m.id === machineId) || null;
+    set({ selectedMachineId: machineId, machine, queue: [] });
+    if (machine) get().fetchQueue();
   },
 
   fetchQueue: async () => {
