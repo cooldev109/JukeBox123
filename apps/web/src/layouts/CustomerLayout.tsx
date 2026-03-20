@@ -31,18 +31,21 @@ const ProfileIcon = () => (
 export const CustomerLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, fetchMe } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { machineId, listenToUpdates, stopListening } = useQueueStore();
   const { fetchWallet } = useWalletStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/');
-      return;
+      navigate('/', { replace: true });
     }
-    fetchMe();
-    fetchWallet();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchWallet();
+    }
+  }, [isAuthenticated, user]);
 
   // Socket connection and machine room
   useEffect(() => {

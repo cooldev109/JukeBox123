@@ -6,9 +6,10 @@ import { useWalletStore } from '../stores/walletStore';
 const TOPUP_OPTIONS = [5, 10, 20, 50]; // reais
 
 export const WalletPage: React.FC = () => {
-  const { balance, transactions, isLoading, pixQrCode, fetchWallet, fetchTransactions, generatePixQr, clearPix } = useWalletStore();
+  const { balance, transactions, isLoading, pixQrCode, cardClientSecret, fetchWallet, fetchTransactions, generatePixQr, topUpWithCard, clearPix, clearCard } = useWalletStore();
   const [customAmount, setCustomAmount] = useState('');
   const [showTopUp, setShowTopUp] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
 
   useEffect(() => {
     fetchWallet();
@@ -16,13 +17,17 @@ export const WalletPage: React.FC = () => {
   }, []);
 
   const handleTopUp = (amount: number) => {
-    generatePixQr(amount);
+    if (paymentMethod === 'card') {
+      topUpWithCard(amount);
+    } else {
+      generatePixQr(amount);
+    }
   };
 
   const handleCustomTopUp = () => {
     const amount = parseFloat(customAmount);
     if (amount >= 1) {
-      generatePixQr(amount);
+      handleTopUp(amount);
     }
   };
 
@@ -31,6 +36,8 @@ export const WalletPage: React.FC = () => {
       case 'CREDIT': return '💰';
       case 'DEBIT': return '🎵';
       case 'TOPUP': return '➕';
+      case 'CREDIT_CARD': return '💳';
+      case 'DEBIT_CARD': return '💳';
       default: return '📋';
     }
   };
@@ -48,7 +55,7 @@ export const WalletPage: React.FC = () => {
           <Button
             variant="primary"
             className="mt-4"
-            onClick={() => { setShowTopUp(true); clearPix(); }}
+            onClick={() => { setShowTopUp(true); clearPix(); clearCard(); }}
           >
             Top Up Credits
           </Button>
@@ -62,9 +69,48 @@ export const WalletPage: React.FC = () => {
             className="mb-6"
           >
             <Card className="p-6">
-              <h3 className="text-lg font-bold text-jb-text-primary mb-4">Add Credits via Pix</h3>
+              <h3 className="text-lg font-bold text-jb-text-primary mb-4">Add Credits</h3>
 
-              {pixQrCode ? (
+              {/* Payment Method Toggle */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setPaymentMethod('pix')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                    paymentMethod === 'pix'
+                      ? 'bg-jb-accent-green text-jb-bg-primary'
+                      : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
+                  }`}
+                >
+                  Pix
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('card')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                    paymentMethod === 'card'
+                      ? 'bg-jb-accent-purple text-white'
+                      : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
+                  }`}
+                >
+                  Card
+                </button>
+              </div>
+
+              {cardClientSecret ? (
+                <div className="text-center space-y-4">
+                  <div className="bg-white/10 p-4 rounded-xl">
+                    <p className="text-jb-accent-purple font-bold text-lg mb-2">Card Payment Ready</p>
+                    <p className="text-jb-text-secondary text-sm">
+                      Complete your payment using Stripe&apos;s secure checkout.
+                    </p>
+                  </div>
+                  <p className="text-jb-accent-green text-xs">
+                    Credits will be added after payment confirmation
+                  </p>
+                  <Button variant="ghost" onClick={() => { clearCard(); setShowTopUp(false); }}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : pixQrCode ? (
                 <div className="text-center space-y-4">
                   <div className="bg-white/10 p-4 rounded-xl">
                     <p className="text-jb-accent-green font-bold text-lg mb-2">Pix Payment Created</p>

@@ -9,13 +9,15 @@ interface User {
   name: string;
   role: string;
   avatar: string | null;
+  regionAccess: string | null;
+  referralCode: string | null;
 }
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string, venueCode?: string) => Promise<User>;
   loginWithOtp: (phone: string, otp: string) => Promise<void>;
   requestOtp: (phone: string) => Promise<string | null>;
   register: (data: { name: string; email?: string; phone?: string; password?: string; role?: string }) => Promise<void>;
@@ -29,14 +31,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: !!localStorage.getItem('jb_access_token'),
   isLoading: false,
 
-  login: async (email, password) => {
+  login: async (email, password, venueCode?) => {
     set({ isLoading: true });
     try {
-      const { data } = await api.post('/auth/login', { email, password });
-      const { user, tokens } = data.data;
+      const payload: any = { email, password };
+      if (venueCode) payload.venueCode = venueCode;
+      const { data } = await api.post('/auth/login', payload);
+      const { user, tokens, machine } = data.data;
       localStorage.setItem('jb_access_token', tokens.accessToken);
       localStorage.setItem('jb_refresh_token', tokens.refreshToken);
       set({ user, isAuthenticated: true });
+      // Store machineId for customer venue context
+      if (machine?.id) {
+        useQueueStore.getState().setMachineId(machine.id);
+        localStorage.setItem('jb_machine_id', machine.id);
+      }
       return user;
     } finally {
       set({ isLoading: false });

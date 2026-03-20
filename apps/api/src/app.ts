@@ -12,6 +12,7 @@ import { venueRouter } from './routes/venues.js';
 import { machineRouter } from './routes/machines.js';
 import { configRouter } from './routes/config.js';
 import { playlistRouter } from './routes/playlists.js';
+import { affiliateRouter } from './routes/affiliates.js';
 
 export function createApp() {
   const app = express();
@@ -63,6 +64,7 @@ export function createApp() {
   app.use(`${apiPrefix}/venues`, venueRouter);
   app.use(`${apiPrefix}/config`, configRouter);
   app.use(`${apiPrefix}/playlists`, playlistRouter);
+  app.use(`${apiPrefix}/affiliates`, affiliateRouter);
 
   // Error handling
   app.use(errorHandler);

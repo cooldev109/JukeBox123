@@ -12,6 +12,8 @@ export const UsersPage: React.FC = () => {
   const roleColor = (role: string) => {
     if (role === 'ADMIN') return 'text-jb-accent-green';
     if (role === 'BAR_OWNER') return 'text-jb-accent-purple';
+    if (role === 'EMPLOYEE') return 'text-amber-400';
+    if (role === 'AFFILIATE') return 'text-jb-highlight-pink';
     return 'text-jb-text-secondary';
   };
 

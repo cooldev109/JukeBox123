@@ -14,7 +14,8 @@ enum UserRole {
   ADMIN
   BAR_OWNER
   CUSTOMER
-  // Stage 2: EMPLOYEE, AFFILIATE
+  EMPLOYEE
+  AFFILIATE
 }
 
 model User {
@@ -28,17 +29,28 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  // Stage 2 fields
+  regionAccess String?   // For EMPLOYEE: city/state/country they manage
+  referralCode String?   @unique // For AFFILIATE: unique referral code
+
   // Relations
-  venues       Venue[]       @relation("VenueOwner")
-  queueItems   QueueItem[]
-  transactions Transaction[]
-  wallet       Wallet?
-  playlists    Playlist[]
-  songRequests SongRequest[]
+  venues              Venue[]              @relation("VenueOwner")
+  queueItems          QueueItem[]
+  transactions        Transaction[]
+  wallet              Wallet?
+  playlists           Playlist[]
+  songRequests        SongRequest[]
+  commissions         Commission[]         @relation("AffiliateCommissions")
+  affiliateReferrals  AffiliateReferral[]
+  machineAlertsResolved MachineAlert[]     @relation("AlertResolvedBy")
+  specialEventsCreated  SpecialEvent[]     @relation("SpecialEventUser")
+  specialEventsApproved SpecialEvent[]     @relation("SpecialEventApprover")
+  bannersCreated      Banner[]             @relation("BannerCreator")
 
   @@index([role])
   @@index([email])
   @@index([phone])
+  @@index([referralCode])
 }
 
 // ============================================
@@ -68,8 +80,10 @@ model Venue {
   updatedAt   DateTime    @updatedAt
 
   // Relations
-  owner    User      @relation("VenueOwner", fields: [ownerId], references: [id])
-  machines Machine[]
+  owner              User                @relation("VenueOwner", fields: [ownerId], references: [id])
+  machines           Machine[]
+  commissions        Commission[]
+  affiliateReferrals AffiliateReferral[]
 
   @@index([ownerId])
   @@index([city, state])
@@ -83,7 +97,7 @@ enum MachineStatus {
   ONLINE
   OFFLINE
   ERROR
-  // Stage 2: ALERT
+  ALERT
 }
 
 model Machine {
@@ -100,9 +114,11 @@ model Machine {
   updatedAt        DateTime      @updatedAt
 
   // Relations
-  venue        Venue         @relation(fields: [venueId], references: [id])
-  queueItems   QueueItem[]
-  transactions Transaction[]
+  venue         Venue          @relation(fields: [venueId], references: [id])
+  queueItems    QueueItem[]
+  transactions  Transaction[]
+  alerts        MachineAlert[]
+  specialEvents SpecialEvent[]
 
   @@index([venueId])
   @@index([status])
@@ -184,13 +200,18 @@ enum TransactionType {
   CREDIT_PURCHASE
   SONG_PAYMENT
   SKIP_QUEUE
-  // Stage 2: SILENCE, VOICE_MSG, REACTION, PHOTO, BIRTHDAY_PACK
+  SILENCE
+  VOICE_MSG
+  REACTION
+  PHOTO
+  BIRTHDAY_PACK
 }
 
 enum PaymentMethod {
   PIX
   WALLET
-  // Stage 2: CREDIT_CARD, DEBIT_CARD
+  CREDIT_CARD
+  DEBIT_CARD
 }
 
 enum TransactionStatus {
@@ -210,13 +231,15 @@ model Transaction {
   paymentMethod    PaymentMethod
   status           TransactionStatus @default(PENDING)
   pixTransactionId String?
+  stripePaymentId  String?           // Stage 2: Stripe payment reference
   idempotencyKey   String?           @unique
   metadata         Json              @default("{}")
   createdAt        DateTime          @default(now())
 
   // Relations
-  user    User     @relation(fields: [userId], references: [id])
-  machine Machine? @relation(fields: [machineId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  machine     Machine?     @relation(fields: [machineId], references: [id])
+  commissions Commission[]
 
   @@index([userId])
   @@index([machineId])
@@ -287,4 +310,187 @@ model GlobalConfig {
   value Json
 
   @@index([key])
+}
+
+// ============================================
+// STAGE 2: COMMISSION
+// ============================================
+enum CommissionType {
+  SALE
+  VENUE_REFERRAL
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+}
+
+model Commission {
+  id                 String           @id @default(uuid())
+  affiliateId        String
+  transactionId      String
+  venueId            String
+  percentage         Float
+  amount             Float
+  type               CommissionType
+  status             CommissionStatus @default(PENDING)
+  paidAt             DateTime?
+  referralDuration   Int?             // months
+  referralPercentage Float?
+  createdAt          DateTime         @default(now())
+
+  // Relations
+  affiliate   User        @relation("AffiliateCommissions", fields: [affiliateId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+  venue       Venue       @relation(fields: [venueId], references: [id])
+
+  @@index([affiliateId])
+  @@index([transactionId])
+  @@index([venueId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// STAGE 2: AFFILIATE REFERRAL
+// ============================================
+model AffiliateReferral {
+  id               String   @id @default(uuid())
+  affiliateId      String
+  venueId          String
+  referralCode     String
+  commissionPercent Float    // 50-100%
+  durationMonths   Int      // 1-6
+  startDate        DateTime @default(now())
+  endDate          DateTime
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  // Relations
+  affiliate User  @relation(fields: [affiliateId], references: [id])
+  venue     Venue @relation(fields: [venueId], references: [id])
+
+  @@index([affiliateId])
+  @@index([venueId])
+  @@index([referralCode])
+  @@index([isActive])
+}
+
+// ============================================
+// STAGE 2: MACHINE ALERT
+// ============================================
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertType {
+  OFFLINE
+  AUDIO_FAIL
+  PAYMENT_ERROR
+  OWNER_INACTIVE
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+  DASHBOARD
+}
+
+model MachineAlert {
+  id           String              @id @default(uuid())
+  machineId    String
+  type         AlertType
+  message      String
+  severity     AlertSeverity       @default(MEDIUM)
+  isResolved   Boolean             @default(false)
+  resolvedAt   DateTime?
+  resolvedById String?
+  notifiedVia  NotificationChannel @default(DASHBOARD)
+  createdAt    DateTime            @default(now())
+
+  // Relations
+  machine    Machine @relation(fields: [machineId], references: [id])
+  resolvedBy User?   @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([machineId])
+  @@index([isResolved])
+  @@index([severity])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// STAGE 2: SPECIAL EVENT
+// ============================================
+enum SpecialEventType {
+  SILENCE
+  VOICE_MESSAGE
+  TEXT_MESSAGE
+  PHOTO
+  REACTION
+  BIRTHDAY
+}
+
+enum SpecialEventStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PLAYED
+}
+
+model SpecialEvent {
+  id           String             @id @default(uuid())
+  machineId    String
+  userId       String
+  type         SpecialEventType
+  content      String?            // text content or media URL
+  duration     Int?               // seconds
+  amount       Float              @default(0)
+  status       SpecialEventStatus @default(PENDING_APPROVAL)
+  approvedById String?
+  createdAt    DateTime           @default(now())
+
+  // Relations
+  machine    Machine @relation(fields: [machineId], references: [id])
+  user       User    @relation("SpecialEventUser", fields: [userId], references: [id])
+  approvedBy User?   @relation("SpecialEventApprover", fields: [approvedById], references: [id])
+
+  @@index([machineId])
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// STAGE 2: BANNER
+// ============================================
+enum BannerTargetRole {
+  AFFILIATE
+  CUSTOMER
+  ALL
+}
+
+model Banner {
+  id          String           @id @default(uuid())
+  targetRole  BannerTargetRole @default(ALL)
+  imageUrl    String?
+  linkUrl     String?
+  message     String
+  isActive    Boolean          @default(true)
+  startDate   DateTime         @default(now())
+  endDate     DateTime?
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdBy User @relation("BannerCreator", fields: [createdById], references: [id])
+
+  @@index([targetRole])
+  @@index([isActive])
+  @@index([startDate, endDate])
 }

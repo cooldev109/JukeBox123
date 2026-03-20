@@ -26,7 +26,7 @@ const updateMachineSchema = z.object({
 
 const heartbeatSchema = z.object({
   ipAddress: z.string().optional(),
-  status: z.enum(['ONLINE', 'OFFLINE', 'ERROR']).optional(),
+  status: z.enum(['ONLINE', 'OFFLINE', 'ERROR', 'ALERT']).optional(),
 });
 
 const paginationSchema = z.object({
@@ -41,17 +41,34 @@ const paginationSchema = z.object({
 machineRouter.get(
   '/',
   requireAuth,
-  requireRole('ADMIN', 'BAR_OWNER'),
+  requireRole('ADMIN', 'BAR_OWNER', 'EMPLOYEE'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { page, limit } = paginationSchema.parse(req.query);
       const skip = (page - 1) * limit;
 
       // Build the where clause based on role
-      const where: Prisma.MachineWhereInput =
-        req.user!.role === 'BAR_OWNER'
-          ? { venue: { ownerId: req.user!.userId } }
-          : {};
+      let where: Prisma.MachineWhereInput = {};
+
+      if (req.user!.role === 'BAR_OWNER') {
+        where = { venue: { ownerId: req.user!.userId } };
+      } else if (req.user!.role === 'EMPLOYEE') {
+        // Employee: filter by assigned region
+        const employee = await prisma.user.findUnique({
+          where: { id: req.user!.userId },
+          select: { regionAccess: true },
+        });
+        if (employee?.regionAccess) {
+          where = {
+            venue: {
+              OR: [
+                { state: employee.regionAccess },
+                { city: employee.regionAccess },
+              ],
+            },
+          };
+        }
+      }
 
       const [machines, total] = await Promise.all([
         prisma.machine.findMany({
@@ -95,7 +112,7 @@ machineRouter.get(
 machineRouter.get(
   '/:id',
   requireAuth,
-  requireRole('ADMIN', 'BAR_OWNER'),
+  requireRole('ADMIN', 'BAR_OWNER', 'EMPLOYEE'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const machineId = req.params.id as string;
@@ -116,6 +133,17 @@ machineRouter.get(
       // BAR_OWNER can only view machines in their own venues
       if (req.user!.role === 'BAR_OWNER' && machine.venue.ownerId !== req.user!.userId) {
         throw new AppError('Access denied to this machine', 403);
+      }
+
+      // EMPLOYEE can only view machines in their assigned region
+      if (req.user!.role === 'EMPLOYEE') {
+        const employee = await prisma.user.findUnique({
+          where: { id: req.user!.userId },
+          select: { regionAccess: true },
+        });
+        if (employee?.regionAccess && machine.venue.state !== employee.regionAccess && machine.venue.city !== employee.regionAccess) {
+          throw new AppError('Machine is outside your assigned region', 403);
+        }
       }
 
       // Get current queue count (PENDING + PLAYING items)

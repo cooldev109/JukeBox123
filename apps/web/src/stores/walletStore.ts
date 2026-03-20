@@ -16,10 +16,13 @@ interface WalletState {
   isLoading: boolean;
   pixQrCode: string | null;
   pixPaymentId: string | null;
+  cardClientSecret: string | null;
   fetchWallet: () => Promise<void>;
   fetchTransactions: () => Promise<void>;
   generatePixQr: (amount: number) => Promise<void>;
+  topUpWithCard: (amount: number) => Promise<void>;
   clearPix: () => void;
+  clearCard: () => void;
 }
 
 export const useWalletStore = create<WalletState>((set) => ({
@@ -28,6 +31,7 @@ export const useWalletStore = create<WalletState>((set) => ({
   isLoading: false,
   pixQrCode: null,
   pixPaymentId: null,
+  cardClientSecret: null,
 
   fetchWallet: async () => {
     try {
@@ -58,5 +62,19 @@ export const useWalletStore = create<WalletState>((set) => ({
     }
   },
 
+  topUpWithCard: async (amount) => {
+    set({ isLoading: true });
+    try {
+      const { data } = await api.post('/payments/wallet/topup', {
+        amount,
+        paymentMethod: 'CREDIT_CARD',
+      });
+      set({ cardClientSecret: data.data.clientSecret || null });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   clearPix: () => set({ pixQrCode: null, pixPaymentId: null }),
+  clearCard: () => set({ cardClientSecret: null }),
 }));

@@ -17,7 +17,9 @@ const registerSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().min(10).max(15).optional(),
   password: z.string().min(6).max(100).optional(),
-  role: z.enum(['ADMIN', 'BAR_OWNER', 'CUSTOMER']).default('CUSTOMER'),
+  role: z.enum(['ADMIN', 'BAR_OWNER', 'CUSTOMER', 'EMPLOYEE', 'AFFILIATE']).default('CUSTOMER'),
+  regionAccess: z.string().min(1).max(100).optional(), // For EMPLOYEE
+  referralCode: z.string().min(3).max(50).optional(),  // For AFFILIATE
 }).refine((data) => data.email || data.phone, {
   message: 'Either email or phone is required',
 });
@@ -25,6 +27,7 @@ const registerSchema = z.object({
 const loginEmailSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  venueCode: z.string().min(1).max(50).optional(),
 });
 
 const loginPhoneSchema = z.object({
@@ -70,6 +73,18 @@ authRouter.post('/register', async (req: Request, res: Response, next: NextFunct
 
     const passwordHash = data.password ? await bcrypt.hash(data.password, 10) : null;
 
+    // Generate unique referral code for affiliates if not provided
+    let referralCode = data.referralCode;
+    if (data.role === 'AFFILIATE' && !referralCode) {
+      referralCode = `AFF-${data.name.replace(/\s+/g, '').toUpperCase().slice(0, 8)}-${Date.now().toString(36).toUpperCase()}`;
+    }
+
+    // Validate referral code uniqueness for affiliates
+    if (referralCode) {
+      const existingCode = await prisma.user.findUnique({ where: { referralCode } });
+      if (existingCode) throw new AppError('Referral code already in use', 409);
+    }
+
     const user = await prisma.user.create({
       data: {
         name: data.name,
@@ -77,15 +92,18 @@ authRouter.post('/register', async (req: Request, res: Response, next: NextFunct
         phone: data.phone || null,
         role: data.role,
         passwordHash,
+        regionAccess: data.role === 'EMPLOYEE' ? (data.regionAccess || null) : null,
+        referralCode: data.role === 'AFFILIATE' ? (referralCode || null) : null,
       },
       select: {
         id: true, email: true, phone: true, name: true, role: true, avatar: true,
+        referralCode: true, regionAccess: true,
         createdAt: true, updatedAt: true,
       },
     });
 
-    // Create wallet for customers
-    if (data.role === 'CUSTOMER') {
+    // Create wallet for customers and affiliates (affiliates can also use jukebox)
+    if (data.role === 'CUSTOMER' || data.role === 'AFFILIATE') {
       await prisma.wallet.create({ data: { userId: user.id } });
     }
 
@@ -117,6 +135,19 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
 
       const tokens = generateTokenPair({ userId: user.id, role: user.role });
 
+      // If venueCode provided (customer login), resolve venue + machine
+      let venue = null;
+      let machine = null;
+      if (data.venueCode) {
+        const v = await prisma.venue.findUnique({
+          where: { code: data.venueCode.toUpperCase() },
+          include: { machines: { where: { status: 'ONLINE' }, take: 1 } },
+        });
+        if (!v) throw new AppError('Invalid venue code', 404);
+        venue = { id: v.id, name: v.name };
+        machine = v.machines[0] ? { id: v.machines[0].id, name: v.machines[0].name } : null;
+      }
+
       return res.json({
         success: true,
         data: {
@@ -125,6 +156,8 @@ authRouter.post('/login', async (req: Request, res: Response, next: NextFunction
             role: user.role, avatar: user.avatar, createdAt: user.createdAt, updatedAt: user.updatedAt,
           },
           tokens,
+          ...(venue && { venue }),
+          ...(machine && { machine }),
         },
       });
     }
@@ -273,6 +306,7 @@ authRouter.get('/me', requireAuth, async (req: Request, res: Response, next: Nex
       where: { id: req.user!.userId },
       select: {
         id: true, email: true, phone: true, name: true, role: true, avatar: true,
+        referralCode: true, regionAccess: true,
         createdAt: true, updatedAt: true,
       },
     });
@@ -316,11 +350,12 @@ authRouter.put('/me', requireAuth, async (req: Request, res: Response, next: Nex
 // ============================================
 // GET /auth/users — Admin: list all users
 // ============================================
-authRouter.get('/users', requireAuth, requireRole('ADMIN'), async (_req: Request, res: Response, next: NextFunction) => {
+authRouter.get('/users', requireAuth, requireRole('ADMIN', 'EMPLOYEE'), async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const users = await prisma.user.findMany({
       select: {
-        id: true, name: true, email: true, phone: true, role: true, createdAt: true,
+        id: true, name: true, email: true, phone: true, role: true,
+        referralCode: true, regionAccess: true, createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });

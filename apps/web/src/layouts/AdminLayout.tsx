@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 const menuItems = [
   { id: 'overview', label: 'Machines', path: '/admin', icon: '\u{1F4E1}' },
   { id: 'venues', label: 'Venues', path: '/admin/venues', icon: '\u{1F3E2}' },
+  { id: 'alerts', label: 'Alerts', path: '/admin/alerts', icon: '\u{1F6A8}' },
   { id: 'revenue', label: 'Revenue', path: '/admin/revenue', icon: '\u{1F4B0}' },
   { id: 'users', label: 'Users', path: '/admin/users', icon: '\u{1F465}' },
   { id: 'songs', label: 'Songs', path: '/admin/songs', icon: '\u{1F3B5}' },
@@ -14,22 +15,15 @@ const menuItems = [
 export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isAuthenticated, fetchMe, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/');
-      return;
+      navigate('/', { replace: true });
+    } else if (user && user.role !== 'ADMIN') {
+      navigate('/', { replace: true });
     }
-    fetchMe();
-  }, [isAuthenticated]);
-
-  // Redirect non-admins
-  useEffect(() => {
-    if (user && user.role !== 'ADMIN') {
-      navigate('/');
-    }
-  }, [user]);
+  }, [isAuthenticated, user, navigate]);
 
   const getActiveId = () => {
     const path = location.pathname;

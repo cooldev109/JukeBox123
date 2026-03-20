@@ -11,6 +11,7 @@ export const venueRouter = Router();
 // Validation schemas
 // ============================================
 const createVenueSchema = z.object({
+  code: z.string().min(2).max(50),
   name: z.string().min(2).max(200),
   address: z.string().min(5).max(500),
   city: z.string().min(2).max(100),
@@ -80,9 +81,23 @@ venueRouter.get('/', requireAuth, async (req: Request, res: Response, next: Next
       where.ownerId = user.userId;
     }
 
-    // CUSTOMER should not list venues (they discover via QR code)
-    if (user.role === 'CUSTOMER') {
-      throw new AppError('Customers cannot list venues', 403);
+    // EMPLOYEE can only see venues in their assigned region
+    if (user.role === 'EMPLOYEE') {
+      const employee = await prisma.user.findUnique({
+        where: { id: user.userId },
+        select: { regionAccess: true },
+      });
+      if (employee?.regionAccess) {
+        where.OR = [
+          { state: employee.regionAccess },
+          { city: employee.regionAccess },
+        ];
+      }
+    }
+
+    // CUSTOMER and AFFILIATE should not list venues (they discover via QR code)
+    if (user.role === 'CUSTOMER' || user.role === 'AFFILIATE') {
+      throw new AppError('Cannot list venues with this role', 403);
     }
 
     // Optional filters
@@ -191,7 +206,7 @@ venueRouter.get('/:id', requireAuth, requireVenueAccess('id'), async (req: Reque
 // ============================================
 // POST /venues — Create venue (ADMIN only)
 // ============================================
-venueRouter.post('/', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+venueRouter.post('/', requireAuth, requireRole('ADMIN', 'EMPLOYEE'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createVenueSchema.parse(req.body);
 
@@ -209,8 +224,20 @@ venueRouter.post('/', requireAuth, requireRole('ADMIN'), async (req: Request, re
       throw new AppError('Owner must have BAR_OWNER or ADMIN role', 400);
     }
 
+    // Employee can only create venues in their assigned region
+    if (req.user!.role === 'EMPLOYEE') {
+      const employee = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: { regionAccess: true },
+      });
+      if (employee?.regionAccess && data.state !== employee.regionAccess && data.city !== employee.regionAccess) {
+        throw new AppError('Cannot create venue outside your assigned region', 403);
+      }
+    }
+
     const venue = await prisma.venue.create({
       data: {
+        code: data.code.toUpperCase(),
         name: data.name,
         address: data.address,
         city: data.city,
