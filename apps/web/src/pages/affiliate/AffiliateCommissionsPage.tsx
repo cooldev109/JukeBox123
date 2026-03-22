@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Card, Skeleton } from '@jukebox/ui';
 import { useAffiliateStore } from '../../stores/affiliateStore';
 
-const formatCurrency = (cents: number) => `R$ ${(cents / 100).toFixed(2)}`;
+const formatCurrency = (value: number) =>
+  `R$ ${value.toFixed(2).replace('.', ',')}`;
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -17,10 +18,18 @@ const formatDate = (dateStr: string) => {
 };
 
 export const AffiliateCommissionsPage: React.FC = () => {
-  const { commissions, commissionSummary, isLoading, fetchCommissions } = useAffiliateStore();
+  const {
+    commissions,
+    commissionSummary,
+    revenueData,
+    isLoading,
+    fetchCommissions,
+    fetchRevenue,
+  } = useAffiliateStore();
 
   useEffect(() => {
     fetchCommissions();
+    fetchRevenue();
   }, []);
 
   return (
@@ -33,7 +42,9 @@ export const AffiliateCommissionsPage: React.FC = () => {
       {commissionSummary && (
         <div className="grid grid-cols-1 tablet:grid-cols-3 gap-4 mb-6">
           <Card glowColor="green" className="p-4 text-center">
-            <p className="text-jb-text-secondary text-xs mb-1">Total Earnings</p>
+            <p className="text-jb-text-secondary text-xs mb-1">
+              Total Earnings
+            </p>
             <p className="text-xl font-bold text-jb-accent-green">
               {formatCurrency(commissionSummary.totalEarnings)}
             </p>
@@ -68,7 +79,7 @@ export const AffiliateCommissionsPage: React.FC = () => {
             </Card>
           ))}
         </div>
-      ) : commissions.length === 0 ? (
+      ) : commissions.length === 0 && (!revenueData || revenueData.splits.length === 0) ? (
         <Card className="p-8 text-center">
           <p className="text-jb-text-secondary">No commissions yet</p>
           <p className="text-jb-text-secondary/60 text-sm mt-1">
@@ -76,52 +87,116 @@ export const AffiliateCommissionsPage: React.FC = () => {
           </p>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {commissions.map((commission, index) => (
-            <motion.div
-              key={commission.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <Card className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg font-bold text-jb-highlight-pink">
-                        {formatCurrency(commission.amount)}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase ${
-                          commission.status === 'PAID'
-                            ? 'bg-jb-accent-green/20 text-jb-accent-green'
-                            : 'bg-jb-accent-purple/20 text-jb-accent-purple'
-                        }`}
-                      >
-                        {commission.status}
-                      </span>
+        <>
+          {/* Commissions from affiliate endpoint */}
+          {commissions.length > 0 && (
+            <div className="space-y-3 mb-8">
+              <h3 className="text-lg font-semibold text-jb-text-primary mb-3">
+                Commission History
+              </h3>
+              {commissions.map((commission, index) => (
+                <motion.div
+                  key={commission.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg font-bold text-jb-highlight-pink">
+                            {formatCurrency(commission.amount)}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase ${
+                              commission.status === 'PAID'
+                                ? 'bg-jb-accent-green/20 text-jb-accent-green'
+                                : 'bg-jb-accent-purple/20 text-jb-accent-purple'
+                            }`}
+                          >
+                            {commission.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-jb-text-secondary flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                              commission.type === 'SALE'
+                                ? 'bg-jb-accent-green/10 text-jb-accent-green'
+                                : 'bg-jb-highlight-pink/10 text-jb-highlight-pink'
+                            }`}
+                          >
+                            {commission.type === 'SALE'
+                              ? 'Sale'
+                              : 'Venue Referral'}
+                          </span>
+                          <span>{commission.venueName}</span>
+                          <span className="text-jb-text-secondary/60">
+                            {formatDate(commission.createdAt)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-jb-text-secondary">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                          commission.type === 'SALE'
-                            ? 'bg-jb-accent-green/10 text-jb-accent-green'
-                            : 'bg-jb-highlight-pink/10 text-jb-highlight-pink'
-                        }`}
-                      >
-                        {commission.type === 'SALE' ? 'Sale' : 'Venue Referral'}
-                      </span>
-                      <span>{commission.venueName}</span>
-                      <span className="text-jb-text-secondary/60">
-                        {formatDate(commission.createdAt)}
-                      </span>
-                    </div>
-                  </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Revenue Splits section */}
+          {revenueData && revenueData.splits.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-jb-text-primary mb-3">
+                Revenue Splits
+              </h3>
+              <Card glowColor="green" className="p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-jb-text-secondary text-sm">
+                    Total from revenue splits
+                  </span>
+                  <span className="text-xl font-bold text-jb-accent-green">
+                    {formatCurrency(revenueData.totalEarned)}
+                  </span>
                 </div>
               </Card>
-            </motion.div>
-          ))}
-        </div>
+              {revenueData.splits.map((split, index) => (
+                <motion.div
+                  key={split.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg font-bold text-jb-accent-green">
+                            {formatCurrency(split.amount)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-jb-accent-green/10 text-jb-accent-green">
+                            {split.percent.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-jb-text-secondary flex-wrap">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/10 text-jb-text-secondary">
+                            {split.transactionType.replace(/_/g, ' ')}
+                          </span>
+                          <span>{split.venueName}</span>
+                          <span className="text-jb-text-secondary/60">
+                            Txn: {formatCurrency(split.transactionAmount)}
+                          </span>
+                          <span className="text-jb-text-secondary/60">
+                            {formatDate(split.date)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

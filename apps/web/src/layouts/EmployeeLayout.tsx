@@ -7,6 +7,7 @@ const menuItems = [
   { id: 'overview', label: 'Machines', path: '/employee', icon: '\u{1F4E1}' },
   { id: 'venues', label: 'Venues', path: '/employee/venues', icon: '\u{1F3E2}' },
   { id: 'alerts', label: 'Alerts', path: '/employee/alerts', icon: '\u{1F6A8}' },
+  { id: 'earnings', label: 'Earnings', path: '/employee/earnings', icon: '\u{1F4B0}' },
   { id: 'register-venue', label: 'Register Venue', path: '/employee/register-venue', icon: '\u{2795}' },
 ];
 

@@ -11,6 +11,7 @@ interface CommissionSummary {
 interface Commission {
   id: string;
   amount: number;
+  percentage: number;
   type: string;
   status: string;
   venueName: string;
@@ -24,6 +25,9 @@ interface Referral {
   state: string;
   isActive: boolean;
   totalEarnings: number;
+  commissionPercent: number;
+  startDate: string;
+  endDate: string;
 }
 
 interface EarningsPeriod {
@@ -45,17 +49,35 @@ interface QRData {
   shareUrl: string;
 }
 
+interface RevenueSplit {
+  id: string;
+  amount: number;
+  percent: number;
+  transactionType: string;
+  transactionAmount: number;
+  venueName: string;
+  date: string;
+}
+
+interface RevenueData {
+  totalEarned: number;
+  splitCount: number;
+  splits: RevenueSplit[];
+}
+
 interface AffiliateState {
   summary: AffiliateSummary | null;
   commissions: Commission[];
   commissionSummary: CommissionSummary | null;
   referrals: Referral[];
   qrData: QRData | null;
+  revenueData: RevenueData | null;
   isLoading: boolean;
   fetchSummary: () => Promise<void>;
   fetchCommissions: () => Promise<void>;
   fetchReferrals: () => Promise<void>;
   fetchQRData: () => Promise<void>;
+  fetchRevenue: () => Promise<void>;
 }
 
 export const useAffiliateStore = create<AffiliateState>((set) => ({
@@ -64,6 +86,7 @@ export const useAffiliateStore = create<AffiliateState>((set) => ({
   commissionSummary: null,
   referrals: [],
   qrData: null,
+  revenueData: null,
   isLoading: false,
 
   fetchSummary: async () => {
@@ -81,8 +104,18 @@ export const useAffiliateStore = create<AffiliateState>((set) => ({
     try {
       const { data } = await api.get('/affiliates/me/commissions');
       const result = data.data || data;
+      // Map nested venue object to flat venueName for UI consumption
+      const commissions = (result.commissions || []).map((c: Record<string, unknown>) => ({
+        id: c.id,
+        amount: c.amount,
+        percentage: c.percentage,
+        type: c.type,
+        status: c.status,
+        venueName: (c.venue as Record<string, string>)?.name || 'Unknown',
+        createdAt: c.createdAt,
+      }));
       set({
-        commissions: result.commissions || [],
+        commissions,
         commissionSummary: result.summary || null,
       });
     } finally {
@@ -95,7 +128,22 @@ export const useAffiliateStore = create<AffiliateState>((set) => ({
     try {
       const { data } = await api.get('/affiliates/me/referrals');
       const result = data.data || data;
-      set({ referrals: result.referrals || [] });
+      // Map nested venue object to flat fields for UI consumption
+      const referrals = (result.referrals || []).map((r: Record<string, unknown>) => {
+        const venue = (r.venue as Record<string, string>) || {};
+        return {
+          id: r.id,
+          venueName: venue.name || 'Unknown',
+          city: venue.city || '',
+          state: venue.state || '',
+          isActive: r.isActive,
+          totalEarnings: r.totalEarnings ?? 0,
+          commissionPercent: r.commissionPercent ?? 0,
+          startDate: r.startDate,
+          endDate: r.endDate,
+        };
+      });
+      set({ referrals });
     } finally {
       set({ isLoading: false });
     }
@@ -106,6 +154,16 @@ export const useAffiliateStore = create<AffiliateState>((set) => ({
     try {
       const { data } = await api.get('/affiliates/me/qr');
       set({ qrData: data.data || data });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  fetchRevenue: async () => {
+    set({ isLoading: true });
+    try {
+      const { data } = await api.get('/revenue/affiliate');
+      set({ revenueData: data.data || data });
     } finally {
       set({ isLoading: false });
     }

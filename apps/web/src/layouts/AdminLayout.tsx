@@ -11,6 +11,7 @@ const menuItems = [
   { id: 'users', label: 'Users', path: '/admin/users', icon: '\u{1F465}' },
   { id: 'songs', label: 'Music Catalog', path: '/admin/songs', icon: '\u{1F3B5}' },
   { id: 'products', label: 'Products', path: '/admin/products', icon: '\u{1F4E6}' },
+  { id: 'regions', label: 'Regions', path: '/admin/regions', icon: '\u{1F30E}' },
   { id: 'settings', label: 'Settings', path: '/admin/settings', icon: '\u{2699}\u{FE0F}' },
 ];
 

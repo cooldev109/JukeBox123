@@ -25,11 +25,13 @@ import { UsersPage } from './pages/admin/UsersPage';
 import { SongsAdminPage } from './pages/admin/SongsAdminPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 import { AdminProductsPage } from './pages/admin/AdminProductsPage';
+import { AdminRegionsPage } from './pages/admin/AdminRegionsPage';
 import { EmployeeLayout } from './layouts/EmployeeLayout';
 import { EmployeeMachinesPage } from './pages/employee/EmployeeMachinesPage';
 import { EmployeeVenuesPage } from './pages/employee/EmployeeVenuesPage';
 import { EmployeeAlertsPage } from './pages/employee/EmployeeAlertsPage';
 import { EmployeeRegisterVenuePage } from './pages/employee/EmployeeRegisterVenuePage';
+import { EmployeeEarningsPage } from './pages/employee/EmployeeEarningsPage';
 import { AffiliateLayout } from './layouts/AffiliateLayout';
 import { AffiliateDashboardPage } from './pages/affiliate/AffiliateDashboardPage';
 import { AffiliateCommissionsPage } from './pages/affiliate/AffiliateCommissionsPage';
@@ -90,6 +92,7 @@ export function App() {
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/songs" element={<SongsAdminPage />} />
         <Route path="/admin/products" element={<AdminProductsPage />} />
+        <Route path="/admin/regions" element={<AdminRegionsPage />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
       </Route>
 
@@ -108,6 +111,7 @@ export function App() {
         <Route path="/employee/venues" element={<EmployeeVenuesPage />} />
         <Route path="/employee/alerts" element={<EmployeeAlertsPage />} />
         <Route path="/employee/register-venue" element={<EmployeeRegisterVenuePage />} />
+        <Route path="/employee/earnings" element={<EmployeeEarningsPage />} />
       </Route>
 
       {/* Affiliate Dashboard */}

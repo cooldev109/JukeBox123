@@ -33,20 +33,39 @@ interface Venue {
   _count?: { machines: number };
 }
 
+interface OperatorSplit {
+  id: string;
+  amount: number;
+  percent: number;
+  transactionType: string;
+  transactionAmount: number;
+  venueName: string;
+  date: string;
+}
+
+interface OperatorEarnings {
+  totalEarned: number;
+  splitCount: number;
+  splits: OperatorSplit[];
+}
+
 interface EmployeeState {
   machines: Machine[];
   venues: Venue[];
   alerts: MachineAlert[];
+  earnings: OperatorEarnings | null;
   isLoading: boolean;
   fetchMachines: () => Promise<void>;
   fetchVenues: () => Promise<void>;
   fetchAlerts: () => Promise<void>;
+  fetchEarnings: () => Promise<void>;
 }
 
 export const useEmployeeStore = create<EmployeeState>((set) => ({
   machines: [],
   venues: [],
   alerts: [],
+  earnings: null,
   isLoading: false,
 
   fetchMachines: async () => {
@@ -95,6 +114,16 @@ export const useEmployeeStore = create<EmployeeState>((set) => ({
       set({ alerts: alertList });
     } catch {
       set({ alerts: [] });
+    }
+  },
+
+  fetchEarnings: async () => {
+    set({ isLoading: true });
+    try {
+      const { data } = await api.get('/revenue/operator');
+      set({ earnings: data.data || data });
+    } finally {
+      set({ isLoading: false });
     }
   },
 }));

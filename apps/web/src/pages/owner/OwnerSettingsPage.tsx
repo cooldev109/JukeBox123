@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Input } from '@jukebox/ui';
 import { useBarOwnerStore } from '../../stores/barOwnerStore';
+import { api } from '../../lib/api';
+
+interface VenueProduct {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  basePrice: number;
+  price: number;
+}
 
 export const OwnerSettingsPage: React.FC = () => {
   const { venue, playlists, fetchVenue, fetchPlaylists, updatePricing, updateSettings } = useBarOwnerStore();
@@ -10,6 +20,14 @@ export const OwnerSettingsPage: React.FC = () => {
   const [autoPlayPlaylistId, setAutoPlayPlaylistId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Product pricing state
+  const [products, setProducts] = useState<VenueProduct[]>([]);
+  const [editedPrices, setEditedPrices] = useState<Record<string, number>>({});
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsSaving, setProductsSaving] = useState(false);
+  const [productsSaved, setProductsSaved] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchVenue();
@@ -23,6 +41,33 @@ export const OwnerSettingsPage: React.FC = () => {
       setAutoPlayPlaylistId(venue.settings.autoPlayPlaylistId || '');
     }
   }, [venue]);
+
+  // Load products when venue is available
+  useEffect(() => {
+    if (!venue?.id) return;
+
+    const loadProducts = async () => {
+      setProductsLoading(true);
+      setProductsError(null);
+      try {
+        const { data } = await api.get(`/products/venue/${venue.id}`);
+        const loadedProducts: VenueProduct[] = data.data.products || [];
+        setProducts(loadedProducts);
+        // Initialize edited prices with current venue prices
+        const initial: Record<string, number> = {};
+        for (const p of loadedProducts) {
+          initial[p.id] = p.price;
+        }
+        setEditedPrices(initial);
+      } catch {
+        setProductsError('Failed to load product pricing');
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [venue?.id]);
 
   const handleSavePricing = async () => {
     setSaving(true);
@@ -49,6 +94,50 @@ export const OwnerSettingsPage: React.FC = () => {
       setSaving(false);
     }
   };
+
+  const handlePriceChange = (productId: string, value: string) => {
+    const num = parseFloat(value);
+    if (!isNaN(num) && num >= 0) {
+      setEditedPrices((prev) => ({ ...prev, [productId]: num }));
+    }
+  };
+
+  const hasProductChanges = products.some((p) => editedPrices[p.id] !== p.price);
+
+  const handleSaveProductPrices = async () => {
+    if (!venue?.id) return;
+
+    const changedPrices = products
+      .filter((p) => editedPrices[p.id] !== p.price)
+      .map((p) => ({ productId: p.id, price: editedPrices[p.id] }));
+
+    if (changedPrices.length === 0) return;
+
+    setProductsSaving(true);
+    setProductsError(null);
+    try {
+      await api.put(`/products/venue/${venue.id}/prices`, { prices: changedPrices });
+      // Update local state to reflect saved prices
+      setProducts((prev) =>
+        prev.map((p) => ({
+          ...p,
+          price: editedPrices[p.id] ?? p.price,
+        }))
+      );
+      setProductsSaved(true);
+      setTimeout(() => setProductsSaved(false), 2000);
+    } catch {
+      setProductsError('Failed to save product prices');
+    } finally {
+      setProductsSaving(false);
+    }
+  };
+
+  const groupedProducts = products.reduce<Record<string, VenueProduct[]>>((acc, p) => {
+    if (!acc[p.category]) acc[p.category] = [];
+    acc[p.category].push(p);
+    return acc;
+  }, {});
 
   return (
     <div>
@@ -100,6 +189,69 @@ export const OwnerSettingsPage: React.FC = () => {
               Save Playlist Setting
             </Button>
           </div>
+        </Card>
+
+        {/* Product Pricing */}
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-jb-text-primary mb-2">Product Pricing</h3>
+          <p className="text-jb-text-secondary text-sm mb-4">
+            Set custom prices for your venue. Leave at base price or adjust per product.
+          </p>
+
+          {productsLoading ? (
+            <p className="text-jb-text-secondary text-sm text-center py-4">Loading products...</p>
+          ) : productsError && products.length === 0 ? (
+            <p className="text-jb-highlight-pink text-sm text-center py-4">{productsError}</p>
+          ) : products.length === 0 ? (
+            <p className="text-jb-text-secondary text-sm text-center py-4">No products available</p>
+          ) : (
+            <div className="space-y-5">
+              {Object.entries(groupedProducts).map(([category, categoryProducts]) => (
+                <div key={category}>
+                  <p className="text-jb-text-secondary text-xs uppercase tracking-wide mb-2">{category}</p>
+                  <div className="space-y-3">
+                    {categoryProducts.map((product) => (
+                      <div key={product.id} className="flex items-center gap-3 p-3 rounded-lg bg-jb-bg-secondary/50 border border-white/5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-jb-text-primary text-sm font-medium truncate">{product.name}</p>
+                          <p className="text-jb-text-secondary text-xs">
+                            Base: R$ {product.basePrice.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="w-28 flex-shrink-0">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-jb-text-secondary text-xs">R$</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editedPrices[product.id] ?? product.price}
+                              onChange={(e) => handlePriceChange(product.id, e.target.value)}
+                              className="w-full bg-jb-bg-primary border border-white/10 rounded text-jb-text-primary text-sm pl-8 pr-2 py-1.5 focus:outline-none focus:border-jb-accent-purple text-right"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {productsError && (
+                <p className="text-jb-highlight-pink text-sm text-center">{productsError}</p>
+              )}
+
+              <Button
+                variant="primary"
+                fullWidth
+                loading={productsSaving}
+                onClick={handleSaveProductPrices}
+                disabled={!hasProductChanges}
+              >
+                {productsSaved ? 'Saved!' : hasProductChanges ? 'Save Product Prices' : 'No Changes'}
+              </Button>
+            </div>
+          )}
         </Card>
       </div>
     </div>

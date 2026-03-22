@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Card, Skeleton } from '@jukebox/ui';
 import { useAffiliateStore } from '../../stores/affiliateStore';
 
-const formatCurrency = (cents: number) => `R$ ${(cents / 100).toFixed(2)}`;
+const formatCurrency = (value: number) =>
+  `R$ ${value.toFixed(2).replace('.', ',')}`;
 
 export const AffiliateReferralsPage: React.FC = () => {
   const { referrals, isLoading, fetchReferrals } = useAffiliateStore();
@@ -21,7 +22,8 @@ export const AffiliateReferralsPage: React.FC = () => {
       </h2>
       {!isLoading && referrals.length > 0 && (
         <p className="text-jb-text-secondary text-sm mb-6">
-          {activeCount} active venue{activeCount !== 1 ? 's' : ''} out of {referrals.length} total
+          {activeCount} active venue{activeCount !== 1 ? 's' : ''} out of{' '}
+          {referrals.length} total
         </p>
       )}
 
@@ -66,11 +68,20 @@ export const AffiliateReferralsPage: React.FC = () => {
                     {referral.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                <p className="text-jb-text-secondary text-sm mb-3">
-                  {referral.city}, {referral.state}
+                <p className="text-jb-text-secondary text-sm mb-1">
+                  {referral.city}
+                  {referral.city && referral.state ? ', ' : ''}
+                  {referral.state}
                 </p>
+                {referral.commissionPercent > 0 && (
+                  <p className="text-jb-text-secondary/60 text-xs mb-3">
+                    Commission rate: {referral.commissionPercent}%
+                  </p>
+                )}
                 <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                  <span className="text-jb-text-secondary text-xs">Total Earnings</span>
+                  <span className="text-jb-text-secondary text-xs">
+                    Total Earnings
+                  </span>
                   <span className="text-jb-highlight-pink font-bold">
                     {formatCurrency(referral.totalEarnings)}
                   </span>
