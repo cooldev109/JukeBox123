@@ -18,11 +18,13 @@ import { TvPlayerPage } from './pages/TvPlayerPage';
 import { MachinesPage } from './pages/admin/MachinesPage';
 import { MachineDetailPage } from './pages/admin/MachineDetailPage';
 import { AdminVenuesPage } from './pages/admin/AdminVenuesPage';
+import { AdminVenueDetailPage } from './pages/admin/AdminVenueDetailPage';
 import { AdminAlertsPage } from './pages/admin/AdminAlertsPage';
 import { RevenuePage } from './pages/admin/RevenuePage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { SongsAdminPage } from './pages/admin/SongsAdminPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
+import { AdminProductsPage } from './pages/admin/AdminProductsPage';
 import { EmployeeLayout } from './layouts/EmployeeLayout';
 import { EmployeeMachinesPage } from './pages/employee/EmployeeMachinesPage';
 import { EmployeeVenuesPage } from './pages/employee/EmployeeVenuesPage';
@@ -33,6 +35,7 @@ import { AffiliateDashboardPage } from './pages/affiliate/AffiliateDashboardPage
 import { AffiliateCommissionsPage } from './pages/affiliate/AffiliateCommissionsPage';
 import { AffiliateReferralsPage } from './pages/affiliate/AffiliateReferralsPage';
 import { AffiliateQRCodePage } from './pages/affiliate/AffiliateQRCodePage';
+import { SpecialEventsPage } from './pages/SpecialEventsPage';
 import { StaffLoginPage } from './pages/StaffLoginPage';
 import { useAuthStore } from './stores/authStore';
 
@@ -70,6 +73,7 @@ export function App() {
       <Route element={<CustomerLayout />}>
         <Route path="/browse" element={<BrowsePage />} />
         <Route path="/queue" element={<QueuePage />} />
+        <Route path="/special" element={<SpecialEventsPage />} />
         <Route path="/wallet" element={<WalletPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/history" element={<HistoryPage />} />
@@ -80,10 +84,12 @@ export function App() {
         <Route path="/admin" element={<MachinesPage />} />
         <Route path="/admin/machines/:id" element={<MachineDetailPage />} />
         <Route path="/admin/venues" element={<AdminVenuesPage />} />
+        <Route path="/admin/venues/:id" element={<AdminVenueDetailPage />} />
         <Route path="/admin/alerts" element={<AdminAlertsPage />} />
         <Route path="/admin/revenue" element={<RevenuePage />} />
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/songs" element={<SongsAdminPage />} />
+        <Route path="/admin/products" element={<AdminProductsPage />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
       </Route>
 

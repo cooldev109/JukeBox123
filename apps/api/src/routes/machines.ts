@@ -396,3 +396,97 @@ machineRouter.post(
     }
   },
 );
+
+// ============================================
+// POST /machines/:id/reassign — Admin moves machine to different venue
+// ============================================
+const reassignMachineSchema = z.object({
+  venueId: z.string().uuid(),
+});
+
+machineRouter.post(
+  '/:id/reassign',
+  requireAuth,
+  requireRole('ADMIN'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const machineId = req.params.id as string;
+      const data = reassignMachineSchema.parse(req.body);
+
+      // Verify machine exists
+      const machine = await prisma.machine.findUnique({
+        where: { id: machineId },
+      });
+
+      if (!machine) {
+        throw new AppError('Machine not found', 404);
+      }
+
+      // Verify target venue exists
+      const venue = await prisma.venue.findUnique({
+        where: { id: data.venueId },
+        select: { id: true, name: true },
+      });
+
+      if (!venue) {
+        throw new AppError('Target venue not found', 404);
+      }
+
+      const updated = await prisma.machine.update({
+        where: { id: machineId },
+        data: { venueId: data.venueId },
+        include: {
+          venue: {
+            select: { id: true, name: true, city: true, state: true },
+          },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: { machine: updated },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return next(new AppError(error.errors[0].message, 400));
+      }
+      next(error);
+    }
+  },
+);
+
+// ============================================
+// DELETE /machines/:id — Admin soft-delete machine
+// ============================================
+machineRouter.delete(
+  '/:id',
+  requireAuth,
+  requireRole('ADMIN'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const machineId = req.params.id as string;
+
+      // Verify machine exists
+      const machine = await prisma.machine.findUnique({
+        where: { id: machineId },
+      });
+
+      if (!machine) {
+        throw new AppError('Machine not found', 404);
+      }
+
+      // Set machine status to OFFLINE
+      await prisma.machine.update({
+        where: { id: machineId },
+        data: { status: 'OFFLINE' },
+      });
+
+      res.json({
+        success: true,
+        message: 'Machine deactivated',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);

@@ -350,17 +350,160 @@ authRouter.put('/me', requireAuth, async (req: Request, res: Response, next: Nex
 // ============================================
 // GET /auth/users — Admin: list all users
 // ============================================
-authRouter.get('/users', requireAuth, requireRole('ADMIN', 'EMPLOYEE'), async (_req: Request, res: Response, next: NextFunction) => {
+authRouter.get('/users', requireAuth, requireRole('ADMIN', 'EMPLOYEE'), async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const role = typeof req.query.role === 'string' ? req.query.role : undefined;
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const includeInactive = req.query.includeInactive === 'true';
+
+    const where: any = {};
+
+    // Filter by isActive (default: only active users)
+    if (!includeInactive) {
+      where.isActive = true;
+    }
+
+    // Filter by role
+    if (role) {
+      const validRoles = ['ADMIN', 'BAR_OWNER', 'CUSTOMER', 'EMPLOYEE', 'AFFILIATE'];
+      if (!validRoles.includes(role)) {
+        throw new AppError('Invalid role filter', 400);
+      }
+      where.role = role;
+    }
+
+    // Search by name, email, or phone
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+      ];
+    }
+
     const users = await prisma.user.findMany({
+      where,
       select: {
         id: true, name: true, email: true, phone: true, role: true,
-        referralCode: true, regionAccess: true, createdAt: true,
+        referralCode: true, regionAccess: true, isActive: true, createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
 
     res.json({ success: true, data: { users } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// PUT /auth/users/:id — Admin: edit any user
+// ============================================
+const adminUpdateUserSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(10).max(15).optional(),
+  role: z.enum(['ADMIN', 'BAR_OWNER', 'CUSTOMER', 'EMPLOYEE', 'AFFILIATE']).optional(),
+  regionAccess: z.string().min(1).max(100).optional().nullable(),
+  referralCode: z.string().min(3).max(50).optional().nullable(),
+  password: z.string().min(6).max(100).optional(),
+});
+
+authRouter.put('/users/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const data = adminUpdateUserSchema.parse(req.body);
+
+    // Check user exists
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+    if (!existingUser) throw new AppError('User not found', 404);
+
+    // Validate email uniqueness if changed
+    if (data.email && data.email !== existingUser.email) {
+      const emailTaken = await prisma.user.findFirst({
+        where: { email: data.email, id: { not: id } },
+      });
+      if (emailTaken) throw new AppError('Email already in use', 409);
+    }
+
+    // Validate referralCode uniqueness if changed
+    if (data.referralCode && data.referralCode !== existingUser.referralCode) {
+      const codeTaken = await prisma.user.findFirst({
+        where: { referralCode: data.referralCode, id: { not: id } },
+      });
+      if (codeTaken) throw new AppError('Referral code already in use', 409);
+    }
+
+    // If role changes to AFFILIATE, auto-generate referralCode if not set
+    let referralCode = data.referralCode;
+    if (data.role === 'AFFILIATE' && !referralCode && !existingUser.referralCode) {
+      const nameBase = (data.name || existingUser.name).replace(/\s+/g, '').toUpperCase().slice(0, 8);
+      referralCode = `AFF-${nameBase}-${Date.now().toString(36).toUpperCase()}`;
+    }
+
+    // Hash password if provided
+    let passwordHash: string | undefined;
+    if (data.password) {
+      passwordHash = await bcrypt.hash(data.password, 10);
+    }
+
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.role !== undefined) updateData.role = data.role;
+    if (data.regionAccess !== undefined) updateData.regionAccess = data.regionAccess;
+    if (referralCode !== undefined) updateData.referralCode = referralCode;
+    if (passwordHash) updateData.passwordHash = passwordHash;
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true, name: true, email: true, phone: true, role: true,
+        referralCode: true, regionAccess: true, isActive: true, createdAt: true,
+      },
+    });
+
+    // If role changes to CUSTOMER or AFFILIATE, ensure wallet exists
+    if (data.role === 'CUSTOMER' || data.role === 'AFFILIATE') {
+      const existingWallet = await prisma.wallet.findUnique({ where: { userId: id } });
+      if (!existingWallet) {
+        await prisma.wallet.create({ data: { userId: id } });
+      }
+    }
+
+    res.json({ success: true, data: { user } });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+});
+
+// ============================================
+// DELETE /auth/users/:id — Admin: soft-delete (deactivate) user
+// ============================================
+authRouter.delete('/users/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+
+    // Cannot delete self
+    if (req.user!.userId === id) {
+      throw new AppError('Cannot deactivate your own account', 400);
+    }
+
+    // Check user exists
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+    if (!existingUser) throw new AppError('User not found', 404);
+
+    await prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    res.json({ success: true, message: 'User deactivated' });
   } catch (error) {
     next(error);
   }

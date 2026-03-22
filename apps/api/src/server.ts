@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createApp } from './app.js';
 import { createSocketServer } from './socket.js';
 import { prisma } from './lib/prisma.js';
+import { checkStaleHeartbeats } from './services/alertService.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
@@ -24,9 +25,17 @@ async function main() {
   // Attach Socket.IO
   createSocketServer(server);
 
+  // Start heartbeat monitor (check every 60 seconds)
+  const heartbeatInterval = setInterval(() => {
+    checkStaleHeartbeats().catch((err) => {
+      console.error('Heartbeat check error:', err.message);
+    });
+  }, 60000);
+
   // Graceful shutdown
   const shutdown = async () => {
     console.log('Shutting down...');
+    clearInterval(heartbeatInterval);
     server.close();
     await prisma.$disconnect();
     process.exit(0);

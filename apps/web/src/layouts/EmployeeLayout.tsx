@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { NotificationBell } from '../components/NotificationBell';
 
 const menuItems = [
   { id: 'overview', label: 'Machines', path: '/employee', icon: '\u{1F4E1}' },
@@ -58,7 +59,10 @@ export const EmployeeLayout: React.FC = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-white/10 space-y-2">
-          <p className="text-jb-text-secondary text-xs truncate">{user?.name}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-jb-text-secondary text-xs truncate">{user?.name}</p>
+            <NotificationBell />
+          </div>
           <p className="text-jb-text-secondary/60 text-[10px] truncate">
             {user?.email}
           </p>

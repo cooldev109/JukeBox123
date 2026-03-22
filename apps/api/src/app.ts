@@ -13,6 +13,12 @@ import { machineRouter } from './routes/machines.js';
 import { configRouter } from './routes/config.js';
 import { playlistRouter } from './routes/playlists.js';
 import { affiliateRouter } from './routes/affiliates.js';
+import { eventRouter } from './routes/events.js';
+import { notificationRouter } from './routes/notifications.js';
+import { catalogRouter } from './routes/catalog.js';
+import { productRouter } from './routes/products.js';
+import { regionRouter } from './routes/regions.js';
+import { revenueRouter } from './routes/revenue.js';
 
 export function createApp() {
   const app = express();
@@ -65,6 +71,15 @@ export function createApp() {
   app.use(`${apiPrefix}/config`, configRouter);
   app.use(`${apiPrefix}/playlists`, playlistRouter);
   app.use(`${apiPrefix}/affiliates`, affiliateRouter);
+  app.use(`${apiPrefix}/events`, eventRouter);
+  app.use(`${apiPrefix}/notifications`, notificationRouter);
+  app.use(`${apiPrefix}/catalog`, catalogRouter);
+  app.use(`${apiPrefix}/products`, productRouter);
+  app.use(`${apiPrefix}/regions`, regionRouter);
+  app.use(`${apiPrefix}/revenue`, revenueRouter);
+
+  // Serve uploaded files
+  app.use('/uploads', express.static('uploads'));
 
   // Error handling
   app.use(errorHandler);

@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { getVenueSplitConfig } from '../services/revenueSplit.js';
 
 export const configRouter = Router();
 
@@ -165,6 +166,110 @@ configRouter.put('/global', requireAuth, requireRole('ADMIN'), async (req: Reque
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));
     }
+    next(error);
+  }
+});
+
+// ============================================
+// Commission Split Config
+// ============================================
+const commissionSplitSchema = z.object({
+  platformPercent: z.number().min(0).max(100),
+  venuePercent: z.number().min(0).max(100),
+  affiliatePercent: z.number().min(0).max(100),
+  operatorPercent: z.number().min(0).max(100),
+}).refine(data => {
+  const sum = data.platformPercent + data.venuePercent + data.affiliatePercent + data.operatorPercent;
+  return Math.abs(sum - 100) < 0.01;
+}, { message: 'Commission percentages must sum to 100%' });
+
+// ============================================
+// GET /config/commission-split — Global default split
+// ============================================
+configRouter.get('/commission-split', requireAuth, requireRole('ADMIN'), async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const config = await prisma.globalConfig.findUnique({
+      where: { key: 'defaultCommissionSplit' },
+    });
+
+    const split = config?.value ?? {
+      platformPercent: 30,
+      venuePercent: 30,
+      affiliatePercent: 35,
+      operatorPercent: 5,
+    };
+
+    res.json({ success: true, data: { split } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// PUT /config/commission-split — Admin updates global default
+// ============================================
+configRouter.put('/commission-split', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = commissionSplitSchema.parse(req.body);
+
+    const result = await prisma.globalConfig.upsert({
+      where: { key: 'defaultCommissionSplit' },
+      update: { value: data as unknown as Prisma.InputJsonValue },
+      create: { key: 'defaultCommissionSplit', value: data as unknown as Prisma.InputJsonValue },
+    });
+
+    res.json({ success: true, data: { split: result.value } });
+  } catch (error) {
+    if (error instanceof z.ZodError) return next(new AppError(error.errors[0].message, 400));
+    next(error);
+  }
+});
+
+// ============================================
+// GET /config/venue/:id/commission-split — Venue-specific split
+// ============================================
+configRouter.get('/venue/:id/commission-split', requireAuth, requireRole('ADMIN', 'BAR_OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const venue = await prisma.venue.findUnique({ where: { id } });
+    if (!venue) throw new AppError('Venue not found', 404);
+
+    if (req.user!.role === 'BAR_OWNER' && venue.ownerId !== req.user!.userId) {
+      throw new AppError('Access denied', 403);
+    }
+
+    const split = await getVenueSplitConfig(id);
+    const venueSettings = (venue.settings || {}) as Record<string, unknown>;
+    const hasOverride = !!venueSettings.commissionSplit;
+
+    res.json({ success: true, data: { split, hasOverride } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// PUT /config/venue/:id/commission-split — Admin updates venue split
+// ============================================
+configRouter.put('/venue/:id/commission-split', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = commissionSplitSchema.parse(req.body);
+    const { id } = req.params;
+
+    const venue = await prisma.venue.findUnique({ where: { id } });
+    if (!venue) throw new AppError('Venue not found', 404);
+
+    const currentSettings = (venue.settings || {}) as Record<string, unknown>;
+    const updatedSettings = { ...currentSettings, commissionSplit: data };
+
+    await prisma.venue.update({
+      where: { id },
+      data: { settings: updatedSettings as Prisma.InputJsonValue },
+    });
+
+    res.json({ success: true, data: { split: data } });
+  } catch (error) {
+    if (error instanceof z.ZodError) return next(new AppError(error.errors[0].message, 400));
     next(error);
   }
 });

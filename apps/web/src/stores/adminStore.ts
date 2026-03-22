@@ -11,11 +11,16 @@ interface Machine {
 
 interface VenueWithMachines {
   id: string;
+  code: string;
   name: string;
+  address: string;
   city: string;
   state: string;
+  country: string;
+  status: string;
   owner: { id: string; name: string; email: string | null };
   machines: Machine[];
+  _count?: { machines: number };
 }
 
 interface RevenueData {
@@ -32,6 +37,9 @@ interface UserRecord {
   email: string | null;
   phone: string | null;
   role: string;
+  regionAccess?: string | null;
+  referralCode?: string | null;
+  isActive?: boolean;
   createdAt: string;
 }
 
@@ -62,9 +70,18 @@ interface AdminState {
   config: GlobalConfig | null;
   isLoading: boolean;
   fetchMachines: () => Promise<void>;
-  fetchVenues: () => Promise<void>;
+  fetchVenues: (params?: { search?: string; city?: string; state?: string; status?: string }) => Promise<void>;
   fetchRevenue: () => Promise<void>;
-  fetchUsers: () => Promise<void>;
+  fetchUsers: (params?: { search?: string; role?: string; includeInactive?: boolean }) => Promise<void>;
+  createUser: (userData: Record<string, unknown>) => Promise<void>;
+  updateUser: (id: string, userData: Record<string, unknown>) => Promise<void>;
+  deactivateUser: (id: string) => Promise<void>;
+  updateVenue: (id: string, venueData: Record<string, unknown>) => Promise<void>;
+  reassignVenueOwner: (id: string, ownerId: string) => Promise<void>;
+  deactivateVenue: (id: string) => Promise<void>;
+  updateMachine: (id: string, machineData: Record<string, unknown>) => Promise<void>;
+  reassignMachine: (id: string, venueId: string) => Promise<void>;
+  deactivateMachine: (id: string) => Promise<void>;
   fetchSongs: (params?: { search?: string; genre?: string }) => Promise<void>;
   fetchConfig: () => Promise<void>;
   updateConfig: (config: Partial<GlobalConfig>) => Promise<void>;
@@ -89,10 +106,16 @@ export const useAdminStore = create<AdminState>((set) => ({
     }
   },
 
-  fetchVenues: async () => {
+  fetchVenues: async (params) => {
     set({ isLoading: true });
     try {
-      const { data } = await api.get('/venues');
+      const query = new URLSearchParams();
+      if (params?.search) query.set('search', params.search);
+      if (params?.city) query.set('city', params.city);
+      if (params?.state) query.set('state', params.state);
+      if (params?.status) query.set('status', params.status);
+      query.set('limit', '100');
+      const { data } = await api.get(`/venues?${query.toString()}`);
       set({ venues: data.data.venues });
     } finally {
       set({ isLoading: false });
@@ -148,17 +171,56 @@ export const useAdminStore = create<AdminState>((set) => ({
     }
   },
 
-  fetchUsers: async () => {
+  fetchUsers: async (params) => {
     set({ isLoading: true });
     try {
-      // Admin endpoint to list users — falls back to empty
-      const { data } = await api.get('/auth/users');
+      const query = new URLSearchParams();
+      if (params?.search) query.set('search', params.search);
+      if (params?.role) query.set('role', params.role);
+      if (params?.includeInactive) query.set('includeInactive', 'true');
+      const { data } = await api.get(`/auth/users?${query.toString()}`);
       set({ users: data.data.users || [] });
     } catch {
       set({ users: [] });
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  createUser: async (userData) => {
+    await api.post('/auth/register', userData);
+  },
+
+  updateUser: async (id, userData) => {
+    await api.put(`/auth/users/${id}`, userData);
+  },
+
+  deactivateUser: async (id) => {
+    await api.delete(`/auth/users/${id}`);
+  },
+
+  updateVenue: async (id, venueData) => {
+    await api.put(`/venues/${id}`, venueData);
+  },
+
+  reassignVenueOwner: async (id, ownerId) => {
+    await api.put(`/venues/${id}/owner`, { ownerId });
+  },
+
+  deactivateVenue: async (id) => {
+    await api.delete(`/venues/${id}`);
+  },
+
+  updateMachine: async (id, machineData) => {
+    await api.put(`/machines/${id}`, machineData);
+  },
+
+  reassignMachine: async (id, venueId) => {
+    await api.post(`/machines/${id}/reassign`, { venueId });
+  },
+
+  deactivateMachine: async (id) => {
+    await api.delete(`/machines/${id}`);
   },
 
   fetchSongs: async (params) => {

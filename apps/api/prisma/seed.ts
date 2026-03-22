@@ -8,6 +8,9 @@ async function main() {
   console.log('Seeding database...');
 
   // Clean existing data (order matters for foreign keys)
+  await prisma.comboItem.deleteMany();
+  await prisma.venueProductPrice.deleteMany();
+  await prisma.product.deleteMany();
   await prisma.commission.deleteMany();
   await prisma.affiliateReferral.deleteMany();
   await prisma.machineAlert.deleteMany();
@@ -480,6 +483,51 @@ async function main() {
   });
 
   console.log('Created global config');
+
+  // ============================================
+  // PRODUCTS (Flexible Pricing)
+  // ============================================
+  const productData = [
+    // Music
+    { code: 'SONG', name: 'Regular Song', category: 'MUSIC', basePrice: 1.20, sortOrder: 1, metadata: {} },
+    { code: 'PRIORITY_SONG', name: 'Priority Song', category: 'MUSIC', basePrice: 2.00, sortOrder: 2, metadata: {} },
+    // Special Events
+    { code: 'SKIP_QUEUE', name: 'Skip Queue', category: 'SPECIAL_EVENT', basePrice: 2.00, sortOrder: 10, metadata: {} },
+    { code: 'SILENCE_15S', name: 'Silence 15s', category: 'SPECIAL_EVENT', basePrice: 1.00, sortOrder: 20, metadata: { durationSeconds: 15 } },
+    { code: 'SILENCE_30S', name: 'Silence 30s', category: 'SPECIAL_EVENT', basePrice: 2.00, sortOrder: 21, metadata: { durationSeconds: 30 } },
+    { code: 'SILENCE_60S', name: 'Silence 60s', category: 'SPECIAL_EVENT', basePrice: 5.00, sortOrder: 22, metadata: { durationSeconds: 60 } },
+    { code: 'SILENCE_CUSTOM', name: 'Custom Silence', category: 'SPECIAL_EVENT', basePrice: 0.10, sortOrder: 23, metadata: { perSecond: true, pricePerSecond: 0.10 } },
+    { code: 'TEXT_MESSAGE', name: 'Text Message', category: 'SPECIAL_EVENT', basePrice: 1.00, sortOrder: 30, metadata: { maxLength: 200 } },
+    { code: 'VOICE_MESSAGE', name: 'Voice Message', category: 'SPECIAL_EVENT', basePrice: 3.00, sortOrder: 31, metadata: { requiresApproval: true } },
+    { code: 'PHOTO', name: 'Photo Display', category: 'SPECIAL_EVENT', basePrice: 2.00, sortOrder: 40, metadata: { requiresApproval: true } },
+    { code: 'MEME', name: 'Meme', category: 'SPECIAL_EVENT', basePrice: 1.00, sortOrder: 41, metadata: {} },
+    { code: 'REACTION', name: 'Reaction', category: 'SPECIAL_EVENT', basePrice: 0.50, sortOrder: 50, metadata: { types: ['APPLAUSE', 'BOO', 'LAUGH', 'HEART', 'FIRE'] } },
+    { code: 'BIRTHDAY', name: 'Birthday Pack', category: 'SPECIAL_EVENT', basePrice: 15.00, sortOrder: 60, metadata: {} },
+    { code: 'SELFIE', name: 'Selfie Display', category: 'SPECIAL_EVENT', basePrice: 2.00, sortOrder: 42, metadata: {} },
+    // Combos
+    { code: 'COMBO_BIRTHDAY_DELUXE', name: 'Birthday Deluxe Pack', description: 'Birthday + 60s Silence + Photo + Text Message', category: 'COMBO', basePrice: 25.00, sortOrder: 100, metadata: {} },
+    { code: 'COMBO_SELFIE_MEME', name: 'Selfie + Meme Pack', description: 'Selfie Display + Meme', category: 'COMBO', basePrice: 3.50, sortOrder: 101, metadata: {} },
+  ];
+
+  const createdProducts: Record<string, string> = {};
+  for (const p of productData) {
+    const product = await prisma.product.create({ data: p });
+    createdProducts[p.code] = product.id;
+  }
+
+  // Combo items
+  await prisma.comboItem.createMany({
+    data: [
+      { comboId: createdProducts['COMBO_BIRTHDAY_DELUXE'], productId: createdProducts['BIRTHDAY'], quantity: 1 },
+      { comboId: createdProducts['COMBO_BIRTHDAY_DELUXE'], productId: createdProducts['SILENCE_60S'], quantity: 1 },
+      { comboId: createdProducts['COMBO_BIRTHDAY_DELUXE'], productId: createdProducts['PHOTO'], quantity: 1 },
+      { comboId: createdProducts['COMBO_BIRTHDAY_DELUXE'], productId: createdProducts['TEXT_MESSAGE'], quantity: 1 },
+      { comboId: createdProducts['COMBO_SELFIE_MEME'], productId: createdProducts['SELFIE'], quantity: 1 },
+      { comboId: createdProducts['COMBO_SELFIE_MEME'], productId: createdProducts['MEME'], quantity: 1 },
+    ],
+  });
+
+  console.log('Created products and combos');
   console.log('Seeding complete!');
 }
 

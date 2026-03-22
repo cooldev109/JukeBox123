@@ -429,3 +429,218 @@ venueRouter.put('/:id/pricing', requireAuth, requireVenueAccess('id'), async (re
     next(error);
   }
 });
+
+// ============================================
+// PUT /venues/:id/owner — Admin reassign venue to different owner
+// ============================================
+const reassignOwnerSchema = z.object({
+  ownerId: z.string().uuid(),
+});
+
+venueRouter.put('/:id/owner', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = reassignOwnerSchema.parse(req.body);
+    const venueId = req.params.id as string;
+
+    // Verify venue exists
+    const existing = await prisma.venue.findUnique({
+      where: { id: venueId },
+    });
+
+    if (!existing) {
+      throw new AppError('Venue not found', 404);
+    }
+
+    // Verify new owner exists and has BAR_OWNER or ADMIN role
+    const newOwner = await prisma.user.findUnique({
+      where: { id: data.ownerId },
+      select: { id: true, role: true, name: true, email: true },
+    });
+
+    if (!newOwner) {
+      throw new AppError('Owner user not found', 404);
+    }
+
+    if (newOwner.role !== 'BAR_OWNER' && newOwner.role !== 'ADMIN') {
+      throw new AppError('Owner must have BAR_OWNER or ADMIN role', 400);
+    }
+
+    const venue = await prisma.venue.update({
+      where: { id: venueId },
+      data: { ownerId: data.ownerId },
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    res.json({
+      success: true,
+      data: { venue },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+});
+
+// ============================================
+// DELETE /venues/:id — Admin soft-delete venue
+// ============================================
+venueRouter.delete('/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const venueId = req.params.id as string;
+
+    // Verify venue exists
+    const existing = await prisma.venue.findUnique({
+      where: { id: venueId },
+    });
+
+    if (!existing) {
+      throw new AppError('Venue not found', 404);
+    }
+
+    // Set venue status to SUSPENDED and all its machines to OFFLINE
+    await prisma.$transaction([
+      prisma.venue.update({
+        where: { id: venueId },
+        data: { status: 'SUSPENDED' },
+      }),
+      prisma.machine.updateMany({
+        where: { venueId },
+        data: { status: 'OFFLINE' },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Venue deactivated',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// GET /venues/:id/analytics — Venue analytics dashboard
+// ============================================
+venueRouter.get(
+  '/:id/analytics',
+  requireAuth,
+  requireRole('ADMIN', 'BAR_OWNER'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+
+      const venue = await prisma.venue.findUnique({
+        where: { id },
+        include: {
+          owner: { select: { id: true, name: true, email: true } },
+          machines: {
+            select: { id: true, name: true, status: true, lastHeartbeat: true, serialNumber: true },
+          },
+          productPrices: {
+            include: { product: { select: { id: true, code: true, name: true, category: true, basePrice: true } } },
+          },
+        },
+      });
+
+      if (!venue) throw new AppError('Venue not found', 404);
+
+      if (req.user!.role === 'BAR_OWNER' && venue.ownerId !== req.user!.userId) {
+        throw new AppError('Access denied', 403);
+      }
+
+      const machineIds = venue.machines.map(m => m.id);
+
+      // Revenue summary
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - 7);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [todayTx, weekTx, monthTx, allTimeTx] = await Promise.all([
+        prisma.transaction.aggregate({
+          where: { machineId: { in: machineIds }, status: 'COMPLETED', createdAt: { gte: todayStart } },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.transaction.aggregate({
+          where: { machineId: { in: machineIds }, status: 'COMPLETED', createdAt: { gte: weekStart } },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.transaction.aggregate({
+          where: { machineId: { in: machineIds }, status: 'COMPLETED', createdAt: { gte: monthStart } },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.transaction.aggregate({
+          where: { machineId: { in: machineIds }, status: 'COMPLETED' },
+          _sum: { amount: true },
+          _count: true,
+        }),
+      ]);
+
+      // Active queue
+      const queue = await prisma.queueItem.findMany({
+        where: { machineId: { in: machineIds }, status: { in: ['PENDING', 'PLAYING'] } },
+        include: {
+          song: { select: { id: true, title: true, artist: true, duration: true, coverArtUrl: true } },
+          user: { select: { id: true, name: true } },
+          machine: { select: { id: true, name: true } },
+        },
+        orderBy: { position: 'asc' },
+        take: 50,
+      });
+
+      // Top songs
+      const topSongs = await prisma.queueItem.groupBy({
+        by: ['songId'],
+        where: { machineId: { in: machineIds }, status: 'PLAYED' },
+        _count: { songId: true },
+        orderBy: { _count: { songId: 'desc' } },
+        take: 10,
+      });
+
+      // Commission split
+      const venueSettings = (venue.settings || {}) as Record<string, unknown>;
+      const commissionSplit = venueSettings.commissionSplit ?? null;
+
+      res.json({
+        success: true,
+        data: {
+          venue: {
+            id: venue.id,
+            code: venue.code,
+            name: venue.name,
+            address: venue.address,
+            city: venue.city,
+            state: venue.state,
+            country: venue.country,
+            status: venue.status,
+            owner: venue.owner,
+          },
+          machines: venue.machines,
+          revenue: {
+            today: todayTx._sum.amount ?? 0,
+            week: weekTx._sum.amount ?? 0,
+            month: monthTx._sum.amount ?? 0,
+            allTime: allTimeTx._sum.amount ?? 0,
+            todayCount: todayTx._count,
+          },
+          queue,
+          topSongs,
+          commissionSplit,
+          productPrices: venue.productPrices,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);

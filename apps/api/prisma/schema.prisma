@@ -28,6 +28,7 @@ model User {
   avatar       String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  isActive     Boolean   @default(true)
 
   // Stage 2 fields
   regionAccess String?   // For EMPLOYEE: city/state/country they manage
@@ -46,6 +47,9 @@ model User {
   specialEventsCreated  SpecialEvent[]     @relation("SpecialEventUser")
   specialEventsApproved SpecialEvent[]     @relation("SpecialEventApprover")
   bannersCreated      Banner[]             @relation("BannerCreator")
+  pushSubscriptions   PushSubscription[]
+  affiliateSplits     RevenueSplit[]       @relation("AffiliateSplits")
+  operatorSplits      RevenueSplit[]       @relation("OperatorSplits")
 
   @@index([role])
   @@index([email])
@@ -76,18 +80,23 @@ model Venue {
   settings    Json        @default("{}")
   status      VenueStatus @default(ACTIVE)
   installDate DateTime?
+  regionId    String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   // Relations
   owner              User                @relation("VenueOwner", fields: [ownerId], references: [id])
+  region             Region?             @relation(fields: [regionId], references: [id])
   machines           Machine[]
   commissions        Commission[]
   affiliateReferrals AffiliateReferral[]
+  productPrices      VenueProductPrice[]
+  revenueSplits      RevenueSplit[]
 
   @@index([ownerId])
   @@index([city, state])
   @@index([status])
+  @@index([regionId])
 }
 
 // ============================================
@@ -126,6 +135,52 @@ model Machine {
 }
 
 // ============================================
+// CATALOG HIERARCHY: Genre > Artist > Album > Song
+// ============================================
+model Genre {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  coverArtUrl String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  artists     Artist[]
+  createdAt   DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model Artist {
+  id          String   @id @default(uuid())
+  name        String
+  genreId     String
+  genre       Genre    @relation(fields: [genreId], references: [id])
+  coverArtUrl String?
+  isActive    Boolean  @default(true)
+  albums      Album[]
+  createdAt   DateTime @default(now())
+
+  @@unique([name, genreId])
+  @@index([genreId])
+  @@index([isActive])
+}
+
+model Album {
+  id          String   @id @default(uuid())
+  name        String
+  artistId    String
+  artist      Artist   @relation(fields: [artistId], references: [id])
+  coverArtUrl String?
+  year        Int?
+  isActive    Boolean  @default(true)
+  songs       Song[]
+  createdAt   DateTime @default(now())
+
+  @@unique([name, artistId])
+  @@index([artistId])
+  @@index([isActive])
+}
+
+// ============================================
 // SONG
 // ============================================
 enum SongFormat {
@@ -150,6 +205,11 @@ model Song {
   playCount   Int        @default(0)
   addedAt     DateTime   @default(now())
 
+  // Catalog hierarchy (optional — backward compatible)
+  albumId     String?
+  albumRef    Album?     @relation(fields: [albumId], references: [id])
+  trackNumber Int?
+
   // Relations
   queueItems QueueItem[]
 
@@ -158,6 +218,7 @@ model Song {
   @@index([artist])
   @@index([isActive])
   @@index([playCount(sort: Desc)])
+  @@index([albumId])
 }
 
 // ============================================
@@ -237,9 +298,10 @@ model Transaction {
   createdAt        DateTime          @default(now())
 
   // Relations
-  user        User         @relation(fields: [userId], references: [id])
-  machine     Machine?     @relation(fields: [machineId], references: [id])
-  commissions Commission[]
+  user          User           @relation(fields: [userId], references: [id])
+  machine       Machine?       @relation(fields: [machineId], references: [id])
+  commissions   Commission[]
+  revenueSplits RevenueSplit[]
 
   @@index([userId])
   @@index([machineId])
@@ -465,6 +527,22 @@ model SpecialEvent {
 }
 
 // ============================================
+// STAGE 2: PUSH SUBSCRIPTION
+// ============================================
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================
 // STAGE 2: BANNER
 // ============================================
 enum BannerTargetRole {
@@ -493,4 +571,118 @@ model Banner {
   @@index([targetRole])
   @@index([isActive])
   @@index([startDate, endDate])
+}
+
+// ============================================
+// STAGE 3: PRODUCT (Flexible Pricing)
+// ============================================
+model Product {
+  id          String   @id @default(uuid())
+  code        String   @unique // e.g. "SONG", "PRIORITY_SONG", "SILENCE_15S", "COMBO_BIRTHDAY_DELUXE"
+  name        String
+  description String?
+  category    String   // "MUSIC", "SPECIAL_EVENT", "COMBO"
+  basePrice   Float
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  metadata    Json     @default("{}") // Extra config like durationSeconds, perSecond, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  venuePrices VenueProductPrice[]
+  comboItems  ComboItem[] @relation("ComboProducts")
+  inCombos    ComboItem[] @relation("IncludedInCombo")
+
+  @@index([category])
+  @@index([code])
+  @@index([isActive])
+}
+
+model VenueProductPrice {
+  id        String  @id @default(uuid())
+  venueId   String
+  venue     Venue   @relation(fields: [venueId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  price     Float
+  isActive  Boolean @default(true)
+
+  @@unique([venueId, productId])
+  @@index([venueId])
+}
+
+model ComboItem {
+  id        String  @id @default(uuid())
+  comboId   String
+  combo     Product @relation("ComboProducts", fields: [comboId], references: [id])
+  productId String
+  product   Product @relation("IncludedInCombo", fields: [productId], references: [id])
+  quantity  Int     @default(1)
+
+  @@index([comboId])
+}
+
+// ============================================
+// STAGE 3: REVENUE SPLIT (Multi-Party Commission)
+// ============================================
+model RevenueSplit {
+  id              String   @id @default(uuid())
+  transactionId   String
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+  venueId         String
+  venue           Venue    @relation(fields: [venueId], references: [id])
+
+  totalAmount     Float
+  platformAmount  Float
+  platformPercent Float
+  venueAmount     Float
+  venuePercent    Float
+  affiliateAmount Float
+  affiliatePercent Float
+  operatorAmount  Float
+  operatorPercent Float
+
+  affiliateId     String?
+  affiliate       User?    @relation("AffiliateSplits", fields: [affiliateId], references: [id])
+  operatorId      String?
+  operator        User?    @relation("OperatorSplits", fields: [operatorId], references: [id])
+
+  createdAt       DateTime @default(now())
+
+  @@index([transactionId])
+  @@index([venueId])
+  @@index([affiliateId])
+  @@index([operatorId])
+  @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// STAGE 3: REGION (Location-Based Catalog)
+// ============================================
+model Region {
+  id        String   @id @default(uuid())
+  code      String   @unique  // "SP", "RJ", "MG", "BR-NE"
+  name      String            // "São Paulo", "Rio de Janeiro"
+  country   String   @default("BR")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  venues         Venue[]
+  catalogEntries RegionCatalog[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model RegionCatalog {
+  id        String  @id @default(uuid())
+  regionId  String
+  region    Region  @relation(fields: [regionId], references: [id])
+  genreId   String? // If set, entire genre available in region
+  artistId  String? // If set, specific artist available
+  songId    String? // If set, specific song available
+  priority  Int     @default(0) // Higher = shown first
+
+  @@unique([regionId, genreId, artistId, songId])
+  @@index([regionId])
 }

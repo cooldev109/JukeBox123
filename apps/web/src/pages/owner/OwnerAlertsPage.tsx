@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Skeleton } from '@jukebox/ui';
+import { Card, Button, Skeleton } from '@jukebox/ui';
 import { api } from '../../lib/api';
+import { useEventsStore } from '../../stores/eventsStore';
 
 interface MachineAlert {
   id: string;
@@ -14,9 +15,11 @@ interface MachineAlert {
 export const OwnerAlertsPage: React.FC = () => {
   const [alerts, setAlerts] = useState<MachineAlert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { pendingEvents, fetchPending, approveEvent, rejectEvent } = useEventsStore();
 
   useEffect(() => {
     fetchAlerts();
+    fetchPending();
   }, []);
 
   const fetchAlerts = async () => {
@@ -49,8 +52,63 @@ export const OwnerAlertsPage: React.FC = () => {
     return 'text-jb-accent-green bg-jb-accent-green/20';
   };
 
+  const handleApprove = async (eventId: string) => {
+    try {
+      await approveEvent(eventId);
+    } catch {
+      // Error handled in store
+    }
+  };
+
+  const handleReject = async (eventId: string) => {
+    try {
+      await rejectEvent(eventId);
+    } catch {
+      // Error handled in store
+    }
+  };
+
   return (
     <div>
+      {/* Pending Event Approvals */}
+      {pendingEvents.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-jb-text-primary mb-4">Pending Approvals</h2>
+          <div className="space-y-3">
+            {pendingEvents.map((event) => (
+              <Card key={event.id} className="p-4" glowColor="purple">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full text-jb-accent-purple bg-jb-accent-purple/20">
+                        {event.type === 'VOICE_MESSAGE' ? 'Voice Message' : 'Photo'}
+                      </span>
+                      <span className="text-jb-text-secondary text-xs">
+                        from {event.user.name}
+                      </span>
+                    </div>
+                    <p className="text-jb-text-secondary text-xs mt-1">
+                      {event.machine.name} — {event.machine.venue.name}
+                    </p>
+                    <p className="text-jb-text-secondary text-xs">
+                      {new Date(event.createdAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="primary" onClick={() => handleApprove(event.id)}>
+                      Approve
+                    </Button>
+                    <Button variant="ghost" onClick={() => handleReject(event.id)}>
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <h2 className="text-2xl font-bold text-jb-text-primary mb-6">Machine Alerts</h2>
 
       {isLoading ? (

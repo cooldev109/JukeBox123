@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MusicVisualizer } from '@jukebox/ui';
 import { useTvPlayerStore } from '../stores/tvPlayerStore';
 import { useAuthStore } from '../stores/authStore';
+import { EventOverlay } from '../components/tv/EventOverlay';
+import { getSocket } from '../lib/socket';
 
 // Audio visualizer using canvas
 const AudioVisualizer: React.FC<{ isPlaying: boolean }> = ({ isPlaying }) => {
@@ -177,6 +179,59 @@ export const TvPlayerPage: React.FC = () => {
       playNext();
     }
   }, [playNext]);
+
+  // Mute/unmute for special events (silence, voice message)
+  const handleMuteAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = 0;
+    }
+  }, []);
+
+  const handleUnmuteAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = volume / 100;
+    }
+  }, [volume]);
+
+  // Listen for special event WebSocket messages
+  useEffect(() => {
+    if (!machineId) return;
+    const socket = getSocket();
+    const queueEvent = (event: any) => {
+      const fn = (window as any).__jb_queueEvent;
+      if (fn) fn(event);
+    };
+
+    socket.on('event:silence', (data: any) => {
+      queueEvent({ type: 'silence', ...data });
+    });
+    socket.on('event:textMessage', (data: any) => {
+      queueEvent({ type: 'textMessage', ...data });
+    });
+    socket.on('event:voiceMessage', (data: any) => {
+      queueEvent({ type: 'voiceMessage', ...data });
+    });
+    socket.on('event:photo', (data: any) => {
+      queueEvent({ type: 'photo', ...data });
+    });
+    socket.on('event:reaction', (data: any) => {
+      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName });
+    });
+    socket.on('event:birthday', (data: any) => {
+      queueEvent({ type: 'birthday', ...data });
+    });
+
+    return () => {
+      socket.off('event:silence');
+      socket.off('event:textMessage');
+      socket.off('event:voiceMessage');
+      socket.off('event:photo');
+      socket.off('event:reaction');
+      socket.off('event:birthday');
+    };
+  }, [machineId]);
 
   // Handle autoplay block — retry play on user click
   const handleUserInteraction = useCallback(() => {
@@ -563,6 +618,9 @@ export const TvPlayerPage: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Special Event Overlays */}
+      <EventOverlay onMuteAudio={handleMuteAudio} onUnmuteAudio={handleUnmuteAudio} />
     </div>
   );
 };

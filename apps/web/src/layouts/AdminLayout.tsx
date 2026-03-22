@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { NotificationBell } from '../components/NotificationBell';
 
 const menuItems = [
   { id: 'overview', label: 'Machines', path: '/admin', icon: '\u{1F4E1}' },
@@ -9,6 +10,7 @@ const menuItems = [
   { id: 'revenue', label: 'Revenue', path: '/admin/revenue', icon: '\u{1F4B0}' },
   { id: 'users', label: 'Users', path: '/admin/users', icon: '\u{1F465}' },
   { id: 'songs', label: 'Songs', path: '/admin/songs', icon: '\u{1F3B5}' },
+  { id: 'products', label: 'Products', path: '/admin/products', icon: '\u{1F4E6}' },
   { id: 'settings', label: 'Settings', path: '/admin/settings', icon: '\u{2699}\u{FE0F}' },
 ];
 
@@ -61,7 +63,10 @@ export const AdminLayout: React.FC = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-white/10 space-y-2">
-          <p className="text-jb-text-secondary text-xs truncate">{user?.name}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-jb-text-secondary text-xs truncate">{user?.name}</p>
+            <NotificationBell />
+          </div>
           <p className="text-jb-text-secondary/60 text-[10px] truncate">
             {user?.email}
           </p>

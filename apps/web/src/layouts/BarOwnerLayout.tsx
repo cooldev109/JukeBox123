@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import { NotificationBell } from '../components/NotificationBell';
 
 const menuItems = [
   { id: 'status', label: 'Machine', path: '/owner', icon: '📡' },
@@ -55,7 +56,10 @@ export const BarOwnerLayout: React.FC = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-white/10 space-y-2">
-          <p className="text-jb-text-secondary text-xs truncate">{user?.name}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-jb-text-secondary text-xs truncate">{user?.name}</p>
+            <NotificationBell />
+          </div>
           <button
             onClick={() => { logout(); navigate('/'); }}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-jb-highlight-pink hover:bg-white/5 transition-all"

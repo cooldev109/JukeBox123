@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../lib/prisma.js', () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), count: vi.fn() },
     venue: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -10,7 +10,35 @@ vi.mock('../lib/prisma.js', () => ({
       update: vi.fn(),
       count: vi.fn(),
     },
+    machine: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
+    wallet: { findUnique: vi.fn(), create: vi.fn() },
+    globalConfig: { findUnique: vi.fn(), findMany: vi.fn(), upsert: vi.fn() },
+    pushSubscription: { upsert: vi.fn(), deleteMany: vi.fn() },
+    machineAlert: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    song: { findFirst: vi.fn(), create: vi.fn() },
+    songRequest: { findUnique: vi.fn(), update: vi.fn() },
+    queueItem: { count: vi.fn(), findMany: vi.fn(), groupBy: vi.fn() },
+    product: { findMany: vi.fn(), findUnique: vi.fn() },
+    transaction: { findMany: vi.fn(), aggregate: vi.fn() },
+    revenueSplit: { findMany: vi.fn() },
+    region: { findMany: vi.fn() },
+    regionCatalog: { findMany: vi.fn() },
+    $transaction: vi.fn().mockImplementation((ops: any[]) => Promise.all(ops)),
   },
+}));
+
+vi.mock('../socket.js', () => ({
+  getIO: vi.fn().mockReturnValue({ to: vi.fn().mockReturnValue({ emit: vi.fn() }) }),
+}));
+
+vi.mock('../lib/stripe.js', () => ({
+  createPaymentIntent: vi.fn(), createCustomer: vi.fn(), attachPaymentMethod: vi.fn(),
+  listPaymentMethods: vi.fn(), constructWebhookEvent: vi.fn(),
+}));
+
+vi.mock('../lib/pushNotifications.js', () => ({
+  getVapidPublicKey: vi.fn().mockReturnValue('test-vapid-key'),
+  sendPushNotification: vi.fn(), notifyUser: vi.fn(), notifyRole: vi.fn(),
 }));
 
 import request from 'supertest';
@@ -271,6 +299,88 @@ describe('Venues Routes', () => {
 
       expect(res.status).toBe(403);
       expect(res.body.success).toBe(false);
+    });
+  });
+
+  // -----------------------------------------------
+  // GET /venues/:id/analytics
+  // -----------------------------------------------
+  describe('GET /api/v1/venues/:id/analytics', () => {
+    const venueData = {
+      id: 'v1',
+      code: 'BAR01',
+      name: 'Test Bar',
+      address: '123 Main',
+      city: 'SP',
+      state: 'SP',
+      country: 'BR',
+      status: 'ACTIVE',
+      ownerId: 'owner-1',
+      settings: { commissionSplit: { platform: 30, venue: 30, affiliate: 35, operator: 5 } },
+      owner: { id: 'owner-1', name: 'Owner', email: 'owner@test.com' },
+      machines: [{ id: 'm1', name: 'Machine 1', status: 'ONLINE', lastHeartbeat: new Date(), serialNumber: 'SN001' }],
+      productPrices: [],
+    };
+
+    const aggregateResult = { _sum: { amount: 500 }, _count: 10 };
+
+    it('admin can view venue analytics', async () => {
+      mockPrisma.venue.findUnique.mockResolvedValue(venueData);
+      mockPrisma.transaction.aggregate.mockResolvedValue(aggregateResult);
+      mockPrisma.queueItem.findMany.mockResolvedValue([]);
+      mockPrisma.queueItem.groupBy.mockResolvedValue([]);
+
+      const res = await request(app)
+        .get('/api/v1/venues/v1/analytics')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.venue.id).toBe('v1');
+      expect(res.body.data.revenue.allTime).toBe(500);
+      expect(res.body.data.machines).toHaveLength(1);
+      expect(res.body.data.commissionSplit).toBeDefined();
+    });
+
+    it('bar owner can view their own venue analytics', async () => {
+      mockPrisma.venue.findUnique.mockResolvedValue(venueData);
+      mockPrisma.transaction.aggregate.mockResolvedValue(aggregateResult);
+      mockPrisma.queueItem.findMany.mockResolvedValue([]);
+      mockPrisma.queueItem.groupBy.mockResolvedValue([]);
+
+      const res = await request(app)
+        .get('/api/v1/venues/v1/analytics')
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.venue.name).toBe('Test Bar');
+    });
+
+    it('bar owner cannot view other venue analytics', async () => {
+      mockPrisma.venue.findUnique.mockResolvedValue({ ...venueData, ownerId: 'other-owner' });
+
+      const res = await request(app)
+        .get('/api/v1/venues/v1/analytics')
+        .set('Authorization', `Bearer ${ownerToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 404 for non-existent venue', async () => {
+      mockPrisma.venue.findUnique.mockResolvedValue(null);
+
+      const res = await request(app)
+        .get('/api/v1/venues/nonexistent/analytics')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('customer cannot access analytics', async () => {
+      const res = await request(app)
+        .get('/api/v1/venues/v1/analytics')
+        .set('Authorization', `Bearer ${customerToken}`);
+
+      expect(res.status).toBe(403);
     });
   });
 });

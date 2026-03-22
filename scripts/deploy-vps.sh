@@ -71,7 +71,7 @@ JWT_REFRESH_SECRET="jb-prod-refresh-secret-change-this-to-random-string"
 # Server
 PORT=3002
 NODE_ENV=production
-CORS_ORIGIN=http://45.55.220.142
+CORS_ORIGIN=http://solodevs.net,http://www.solodevs.net,http://45.55.220.142
 
 # Pix Payment Gateway (placeholder — replace with real keys)
 PIX_GATEWAY_URL="https://api.mercadopago.com"
@@ -96,9 +96,13 @@ echo "Done."
 echo ""
 echo "[6/8] Running database migrations and seed..."
 cd /root/JukeBox
+
+# Load env vars so Prisma can find DATABASE_URL
+export $(grep -v '^#' apps/api/.env | xargs)
+
 npx prisma generate --schema=apps/api/prisma/schema.prisma
-npx prisma migrate deploy --schema=apps/api/prisma/schema.prisma
-npm run db:seed
+npx prisma db push --schema=apps/api/prisma/schema.prisma --accept-data-loss
+npx tsx apps/api/prisma/seed.ts
 echo "Done."
 
 # ============================================
@@ -125,7 +129,7 @@ echo "[8/8] Configuring Nginx..."
 cat > /etc/nginx/sites-available/jukebox << 'NGINXEOF'
 server {
     listen 80;
-    server_name 45.55.220.142;
+    server_name solodevs.net www.solodevs.net 45.55.220.142;
 
     # Frontend (built static files)
     root /root/JukeBox/apps/web/dist;
@@ -191,9 +195,9 @@ echo "=========================================="
 echo "  DEPLOYMENT COMPLETE!"
 echo "=========================================="
 echo ""
-echo "  App:        http://45.55.220.142"
-echo "  TV Player:  http://45.55.220.142/tv-player"
-echo "  API Health: http://45.55.220.142/api/v1/health"
+echo "  App:        http://solodevs.net"
+echo "  TV Player:  http://solodevs.net/tv-player"
+echo "  API Health: http://solodevs.net/api/v1/health"
 echo ""
 echo "  Credentials (all password: password123):"
 echo "    Admin:      admin@jukebox.com      (Staff Login)"

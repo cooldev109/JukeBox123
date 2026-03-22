@@ -59,7 +59,7 @@ describe('adminStore', () => {
 
       await useAdminStore.getState().fetchVenues();
 
-      expect(mockApi.get).toHaveBeenCalledWith('/venues');
+      expect(mockApi.get).toHaveBeenCalledWith('/venues?limit=100');
       expect(useAdminStore.getState().venues).toEqual(venues);
     });
   });
@@ -107,7 +107,7 @@ describe('adminStore', () => {
 
       await useAdminStore.getState().fetchUsers();
 
-      expect(mockApi.get).toHaveBeenCalledWith('/auth/users');
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/users?');
       expect(useAdminStore.getState().users).toEqual(users);
     });
 
