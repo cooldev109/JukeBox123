@@ -9,7 +9,7 @@ const menuItems = [
   { id: 'alerts', label: 'Alerts', path: '/admin/alerts', icon: '\u{1F6A8}' },
   { id: 'revenue', label: 'Revenue', path: '/admin/revenue', icon: '\u{1F4B0}' },
   { id: 'users', label: 'Users', path: '/admin/users', icon: '\u{1F465}' },
-  { id: 'songs', label: 'Songs', path: '/admin/songs', icon: '\u{1F3B5}' },
+  { id: 'songs', label: 'Music Catalog', path: '/admin/songs', icon: '\u{1F3B5}' },
   { id: 'products', label: 'Products', path: '/admin/products', icon: '\u{1F4E6}' },
   { id: 'settings', label: 'Settings', path: '/admin/settings', icon: '\u{2699}\u{FE0F}' },
 ];
