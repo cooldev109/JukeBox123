@@ -56,7 +56,7 @@ export const SongsAdminPage: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await api.get('/catalog/genres');
-      setGenres(data.data.genres);
+      setGenres(data.data?.genres || []);
     } catch { /* */ }
     setLoading(false);
   };
@@ -69,7 +69,7 @@ export const SongsAdminPage: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/catalog/genres/${genre.id}/artists`);
-      setArtists(data.data.artists);
+      setArtists(data.data?.artists || []);
     } catch { /* */ }
     setLoading(false);
   };
@@ -81,7 +81,7 @@ export const SongsAdminPage: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/catalog/artists/${artist.id}/albums`);
-      setAlbums(data.data.albums);
+      setAlbums(data.data?.albums || []);
     } catch { /* */ }
     setLoading(false);
   };
@@ -92,7 +92,7 @@ export const SongsAdminPage: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/catalog/albums/${album.id}/songs`);
-      setCatalogSongs(data.data.songs);
+      setCatalogSongs(data.data?.songs || []);
     } catch { /* */ }
     setLoading(false);
   };

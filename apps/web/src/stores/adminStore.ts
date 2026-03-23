@@ -227,11 +227,11 @@ export const useAdminStore = create<AdminState>((set) => ({
     set({ isLoading: true });
     try {
       const query = new URLSearchParams();
-      if (params?.search) query.set('search', params.search);
+      if (params?.search) query.set('query', params.search);
       if (params?.genre) query.set('genre', params.genre);
       query.set('limit', '100');
       const { data } = await api.get(`/songs?${query.toString()}`);
-      set({ songs: data.data.songs });
+      set({ songs: data.data?.songs || [] });
     } finally {
       set({ isLoading: false });
     }
