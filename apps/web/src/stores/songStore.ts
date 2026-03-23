@@ -51,7 +51,8 @@ export const useSongStore = create<SongState>((set, get) => ({
       query.set('limit', '20');
 
       const { data } = await api.get(`/songs?${query.toString()}`);
-      set({ songs: data.data.songs, totalCount: data.data.pagination?.total ?? data.data.songs.length });
+      const songs = data.data?.songs || [];
+      set({ songs, totalCount: data.data?.pagination?.total ?? songs.length });
     } finally {
       set({ isLoading: false });
     }
@@ -60,7 +61,7 @@ export const useSongStore = create<SongState>((set, get) => ({
   fetchGenres: async () => {
     try {
       const { data } = await api.get('/songs/genres');
-      set({ genres: data.data.genres });
+      set({ genres: data.data?.genres || [] });
     } catch {
       // Ignore
     }

@@ -100,7 +100,7 @@ export const useAdminStore = create<AdminState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.get('/machines');
-      set({ machines: data.data.machines });
+      set({ machines: data.data?.machines || [] });
     } finally {
       set({ isLoading: false });
     }
@@ -116,7 +116,7 @@ export const useAdminStore = create<AdminState>((set) => ({
       if (params?.status) query.set('status', params.status);
       query.set('limit', '100');
       const { data } = await api.get(`/venues?${query.toString()}`);
-      set({ venues: data.data.venues });
+      set({ venues: data.data?.venues || [] });
     } finally {
       set({ isLoading: false });
     }

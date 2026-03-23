@@ -79,7 +79,7 @@ export const useBarOwnerStore = create<BarOwnerState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.get('/venues');
-      const venues = data.data.venues;
+      const venues = data.data?.venues || [];
       if (venues.length > 0) {
         set({ venue: venues[0] });
       }
@@ -91,7 +91,7 @@ export const useBarOwnerStore = create<BarOwnerState>((set, get) => ({
   fetchMachine: async () => {
     try {
       const { data } = await api.get('/machines');
-      const machines: Machine[] = data.data.machines;
+      const machines: Machine[] = data.data?.machines || [];
       const selectedId = get().selectedMachineId;
       const selected = selectedId ? machines.find(m => m.id === selectedId) : machines[0];
       set({ machines, machine: selected || machines[0] || null });
