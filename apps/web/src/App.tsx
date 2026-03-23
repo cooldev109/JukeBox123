@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LandingPage } from './pages/LandingPage';
 import { BrowsePage } from './pages/BrowsePage';
 import { QueuePage } from './pages/QueuePage';
@@ -66,6 +67,7 @@ export function App() {
   }
 
   return (
+    <ErrorBoundary>
     <Routes>
       {/* Public */}
       <Route path="/" element={<LandingPage />} />
@@ -128,5 +130,6 @@ export function App() {
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 }

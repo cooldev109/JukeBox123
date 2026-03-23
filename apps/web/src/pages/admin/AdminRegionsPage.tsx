@@ -47,7 +47,7 @@ export const AdminRegionsPage: React.FC = () => {
     setLoading(true);
     try {
       const { data } = await api.get('/regions');
-      setRegions(data.regions);
+      setRegions(data.data?.regions || []);
     } catch {
       // ignore
     } finally {
@@ -59,7 +59,7 @@ export const AdminRegionsPage: React.FC = () => {
     setCatalogLoading(true);
     try {
       const { data } = await api.get(`/regions/${regionId}/catalog`);
-      setCatalogEntries(data.entries);
+      setCatalogEntries(data.data?.entries || []);
     } catch {
       setCatalogEntries([]);
     } finally {
@@ -70,7 +70,7 @@ export const AdminRegionsPage: React.FC = () => {
   const fetchGenres = useCallback(async () => {
     try {
       const { data } = await api.get('/catalog/genres');
-      setGenres(data.genres || data);
+      setGenres(data.data?.genres || []);
     } catch {
       // ignore
     }

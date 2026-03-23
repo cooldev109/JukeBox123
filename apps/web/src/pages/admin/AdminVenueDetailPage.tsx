@@ -96,7 +96,13 @@ export const AdminVenueDetailPage: React.FC = () => {
     );
   }
 
-  const { venue, machines, revenue, queue, topSongs, commissionSplit, productPrices } = data;
+  const venue = data.venue;
+  const machines = data.machines || [];
+  const revenue = data.revenue || { today: 0, week: 0, month: 0, allTime: 0, todayCount: 0 };
+  const queue = data.queue || [];
+  const topSongs = data.topSongs || [];
+  const commissionSplit = data.commissionSplit;
+  const productPrices = data.productPrices || [];
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'music', label: 'Music & Queue' },
