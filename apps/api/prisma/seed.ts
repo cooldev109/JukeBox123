@@ -21,8 +21,13 @@ async function main() {
   await prisma.transaction.deleteMany();
   await prisma.queueItem.deleteMany();
   await prisma.wallet.deleteMany();
+  await prisma.regionCatalog.deleteMany();
   await prisma.song.deleteMany();
+  await prisma.album.deleteMany();
+  await prisma.artist.deleteMany();
+  await prisma.genre.deleteMany();
   await prisma.machine.deleteMany();
+  await prisma.region.deleteMany();
   await prisma.venue.deleteMany();
   await prisma.globalConfig.deleteMany();
   await prisma.user.deleteMany();
@@ -260,14 +265,51 @@ async function main() {
   console.log('Created machines');
 
   // ============================================
-  // SONGS (CC0 Public Domain from Archive.org)
+  // MUSIC CATALOG: Genres → Artists → Albums → Songs
   // ============================================
+
+  // Genres
+  const genreAcoustic = await prisma.genre.create({ data: { name: 'Acoustic', sortOrder: 1 } });
+  const genrePop = await prisma.genre.create({ data: { name: 'Pop', sortOrder: 2 } });
+  const genreRock = await prisma.genre.create({ data: { name: 'Rock', sortOrder: 3 } });
+  const genreIndie = await prisma.genre.create({ data: { name: 'Indie', sortOrder: 4 } });
+  const genreElectronic = await prisma.genre.create({ data: { name: 'Electronic', sortOrder: 5 } });
+  const genreJazz = await prisma.genre.create({ data: { name: 'Jazz', sortOrder: 6 } });
+
+  console.log('Created genres');
+
+  // Artists
+  const artistDonnieSandsAcoustic = await prisma.artist.create({ data: { name: 'Donnie Sands', genreId: genreAcoustic.id } });
+  const artistDonnieSandsPop = await prisma.artist.create({ data: { name: 'Donnie Sands', genreId: genrePop.id } });
+  const artistDonnieSandsRock = await prisma.artist.create({ data: { name: 'Donnie Sands', genreId: genreRock.id } });
+  const artistTrenchParty = await prisma.artist.create({ data: { name: 'Trench Party', genreId: genreIndie.id } });
+  const artistElperfecto = await prisma.artist.create({ data: { name: 'elperfecto.com', genreId: genreElectronic.id } });
+  const artistMalaventura = await prisma.artist.create({ data: { name: 'Malaventura', genreId: genreElectronic.id } });
+  const artistStigSneddon = await prisma.artist.create({ data: { name: 'Stig Sneddon', genreId: genreRock.id } });
+  const artistColemanHawkins = await prisma.artist.create({ data: { name: 'Coleman Hawkins', genreId: genreJazz.id } });
+
+  console.log('Created artists');
+
+  // Albums
+  const albumDefiningMoment = await prisma.album.create({ data: { name: 'Defining Moment', artistId: artistDonnieSandsAcoustic.id } });
+  const albumHero = await prisma.album.create({ data: { name: 'Hero', artistId: artistDonnieSandsPop.id } });
+  const albumPerfectStorm = await prisma.album.create({ data: { name: 'The Perfect Storm', artistId: artistDonnieSandsRock.id } });
+  const albumTrenchPartySingle = await prisma.album.create({ data: { name: 'Single', artistId: artistTrenchParty.id } });
+  const albumElperfectoSingle = await prisma.album.create({ data: { name: 'Single', artistId: artistElperfecto.id } });
+  const albumMalaventura = await prisma.album.create({ data: { name: 'Malaventura', artistId: artistMalaventura.id } });
+  const albumStig2010 = await prisma.album.create({ data: { name: 'Stig 2010', artistId: artistStigSneddon.id, year: 2010 } });
+  const albumJazzClassics = await prisma.album.create({ data: { name: 'Jazz Classics', artistId: artistColemanHawkins.id } });
+
+  console.log('Created albums');
+
+  // Songs (linked to hierarchy via albumId)
   const songs = await Promise.all([
     prisma.song.create({
       data: {
         title: 'Defining Moment', artist: 'Donnie Sands', album: 'Defining Moment', genre: 'Acoustic',
         duration: 235, fileUrl: 'https://archive.org/download/DonnieSands-DefiningMoment/12DonnieSands-DefiningMoment.mp3',
         coverArtUrl: 'https://archive.org/services/img/DonnieSands-DefiningMoment', format: SongFormat.MP3, fileSize: 5500000, playCount: 150,
+        albumId: albumDefiningMoment.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -275,6 +317,7 @@ async function main() {
         title: 'Hero', artist: 'Donnie Sands', album: 'Hero', genre: 'Pop',
         duration: 231, fileUrl: 'https://archive.org/download/DonnieSands-Hero/09DonnieSands-Hero.mp3',
         coverArtUrl: 'https://archive.org/services/img/DonnieSands-Hero', format: SongFormat.MP3, fileSize: 4200000, playCount: 200,
+        albumId: albumHero.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -282,6 +325,7 @@ async function main() {
         title: 'The Perfect Storm', artist: 'Donnie Sands', album: 'The Perfect Storm', genre: 'Rock',
         duration: 279, fileUrl: 'https://archive.org/download/DonnieSands-ThePerfectStormAcoustic/DonnieSands-ThePerfectStorm.mp3',
         coverArtUrl: 'https://archive.org/services/img/DonnieSands-ThePerfectStormAcoustic', format: SongFormat.MP3, fileSize: 4800000, playCount: 95,
+        albumId: albumPerfectStorm.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -289,6 +333,7 @@ async function main() {
         title: 'Bad Parenting', artist: 'Trench Party', album: 'Single', genre: 'Indie',
         duration: 137, fileUrl: 'https://archive.org/download/BadParenting/TrenchParty-BadParenting.mp3',
         coverArtUrl: 'https://archive.org/services/img/BadParenting', format: SongFormat.MP3, fileSize: 4000000, playCount: 120,
+        albumId: albumTrenchPartySingle.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -296,6 +341,7 @@ async function main() {
         title: 'Job 33 Remix', artist: 'elperfecto.com', album: 'Single', genre: 'Electronic',
         duration: 177, fileUrl: 'https://archive.org/download/Job33Remix/Job33Remix.mp3',
         coverArtUrl: 'https://archive.org/services/img/Job33Remix', format: SongFormat.MP3, fileSize: 3800000, playCount: 80,
+        albumId: albumElperfectoSingle.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -303,6 +349,7 @@ async function main() {
         title: 'Frecuencias', artist: 'Malaventura', album: 'Malaventura', genre: 'Electronic',
         duration: 333, fileUrl: 'https://archive.org/download/malaventura01/01Frecuencias.mp3',
         coverArtUrl: 'https://archive.org/services/img/malaventura01', format: SongFormat.MP3, fileSize: 4100000, playCount: 110,
+        albumId: albumMalaventura.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -310,6 +357,7 @@ async function main() {
         title: 'La Cruz', artist: 'Malaventura', album: 'Malaventura', genre: 'Electronic',
         duration: 245, fileUrl: 'https://archive.org/download/malaventura01/02LaCruz.mp3',
         coverArtUrl: 'https://archive.org/services/img/malaventura01', format: SongFormat.MP3, fileSize: 4500000, playCount: 175,
+        albumId: albumMalaventura.id, trackNumber: 2,
       },
     }),
     prisma.song.create({
@@ -317,6 +365,7 @@ async function main() {
         title: 'Aldous', artist: 'Stig Sneddon', album: 'Stig 2010', genre: 'Rock',
         duration: 171, fileUrl: 'https://archive.org/download/Stig_2010/Aldous.mp3',
         coverArtUrl: 'https://archive.org/services/img/Stig_2010', format: SongFormat.MP3, fileSize: 4500000, playCount: 250,
+        albumId: albumStig2010.id, trackNumber: 1,
       },
     }),
     prisma.song.create({
@@ -324,6 +373,7 @@ async function main() {
         title: 'Four More Years', artist: 'Stig Sneddon', album: 'Stig 2010', genre: 'Rock',
         duration: 192, fileUrl: 'https://archive.org/download/Stig_2010/FourMoreYears.mp3',
         coverArtUrl: 'https://archive.org/services/img/Stig_2010', format: SongFormat.MP3, fileSize: 6200000, playCount: 90,
+        albumId: albumStig2010.id, trackNumber: 2,
       },
     }),
     prisma.song.create({
@@ -331,11 +381,12 @@ async function main() {
         title: 'Blues Evermore', artist: 'Coleman Hawkins', album: 'Jazz Classics', genre: 'Jazz',
         duration: 168, fileUrl: 'https://archive.org/download/ColemanHawkins_172/ColemanHawkins-01-BluesEvermore-June141938.mp3',
         coverArtUrl: 'https://archive.org/services/img/ColemanHawkins_172', format: SongFormat.MP3, fileSize: 4000000, playCount: 300,
+        albumId: albumJazzClassics.id, trackNumber: 1,
       },
     }),
   ]);
 
-  console.log(`Created ${songs.length} songs`);
+  console.log(`Created ${songs.length} songs (linked to catalog hierarchy)`);
 
   // ============================================
   // WALLETS
@@ -483,6 +534,32 @@ async function main() {
   });
 
   console.log('Created global config');
+
+  // ============================================
+  // REGIONS & REGIONAL CATALOG
+  // ============================================
+  const regionSP = await prisma.region.create({ data: { code: 'SP', name: 'São Paulo' } });
+  const regionRJ = await prisma.region.create({ data: { code: 'RJ', name: 'Rio de Janeiro' } });
+
+  // Link venues to regions
+  await prisma.venue.update({ where: { id: venue1.id }, data: { regionId: regionSP.id } });
+  await prisma.venue.update({ where: { id: venue2.id }, data: { regionId: regionSP.id } });
+
+  // Regional catalog: make all genres available in SP, only Rock/Jazz in RJ
+  await prisma.regionCatalog.createMany({
+    data: [
+      { regionId: regionSP.id, genreId: genreAcoustic.id, priority: 1 },
+      { regionId: regionSP.id, genreId: genrePop.id, priority: 2 },
+      { regionId: regionSP.id, genreId: genreRock.id, priority: 3 },
+      { regionId: regionSP.id, genreId: genreIndie.id, priority: 4 },
+      { regionId: regionSP.id, genreId: genreElectronic.id, priority: 5 },
+      { regionId: regionSP.id, genreId: genreJazz.id, priority: 6 },
+      { regionId: regionRJ.id, genreId: genreRock.id, priority: 1 },
+      { regionId: regionRJ.id, genreId: genreJazz.id, priority: 2 },
+    ],
+  });
+
+  console.log('Created regions and regional catalog');
 
   // ============================================
   // PRODUCTS (Flexible Pricing)
