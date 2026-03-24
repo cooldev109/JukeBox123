@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SearchBar, SongCard, Button, Modal, Skeleton } from '@jukebox/ui';
+import { SearchBar, SongCard, Button, Modal, Skeleton, Input } from '@jukebox/ui';
 import { useSongStore } from '../stores/songStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
 import { useAuthStore } from '../stores/authStore';
+import { api } from '../lib/api';
 
 const formatDuration = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -32,11 +33,14 @@ const genreColors: Record<string, string> = {
 
 export const BrowsePage: React.FC = () => {
   const { songs, genres, isLoading, searchQuery, selectedGenre, fetchSongs, fetchGenres, setSearchQuery, setSelectedGenre } = useSongStore();
-  const { addToQueue, machineId } = useQueueStore();
+  const { addToQueue, machineId, setMachineId } = useQueueStore();
   const { balance, fetchWallet } = useWalletStore();
   const { user } = useAuthStore();
 
   const [selectedSong, setSelectedSong] = useState<typeof songs[0] | null>(null);
+  const [venueCode, setVenueCode] = useState('');
+  const [connectingVenue, setConnectingVenue] = useState(false);
+  const [venueError, setVenueError] = useState('');
   const [addingToQueue, setAddingToQueue] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
@@ -124,8 +128,48 @@ export const BrowsePage: React.FC = () => {
     }
   };
 
+  const handleConnectVenue = async () => {
+    if (!venueCode.trim()) { setVenueError('Enter the venue code'); return; }
+    setConnectingVenue(true);
+    setVenueError('');
+    try {
+      const { data } = await api.post('/auth/connect-venue', { venueCode: venueCode.trim().toUpperCase() });
+      const machine = data.data?.machine;
+      if (!machine) { setVenueError('No machines available at this venue'); return; }
+      setMachineId(machine.id);
+      localStorage.setItem('jb_machine_id', machine.id);
+      setVenueCode('');
+    } catch (err: any) {
+      setVenueError(err.response?.data?.error || 'Venue not found');
+    } finally {
+      setConnectingVenue(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-jb-bg-primary pb-24">
+      {/* Venue connection banner */}
+      {!machineId && (
+        <div className="bg-jb-highlight-pink/10 border-b border-jb-highlight-pink/30 px-4 py-3">
+          <div className="max-w-6xl mx-auto">
+            <p className="text-jb-text-primary text-sm font-medium mb-2">
+              Enter the venue code to connect to a machine
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. BAR-CARLOS"
+                value={venueCode}
+                onChange={(e) => setVenueCode(e.target.value)}
+              />
+              <Button variant="primary" loading={connectingVenue} onClick={handleConnectVenue}>
+                Connect
+              </Button>
+            </div>
+            {venueError && <p className="text-jb-highlight-pink text-xs mt-1">{venueError}</p>}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-30 bg-jb-bg-primary/95 backdrop-blur-xl border-b border-white/5 px-4 pt-4 pb-3">
         <div className="max-w-6xl mx-auto">

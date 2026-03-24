@@ -508,3 +508,29 @@ authRouter.delete('/users/:id', requireAuth, requireRole('ADMIN'), async (req: R
     next(error);
   }
 });
+
+// ============================================
+// POST /auth/connect-venue — Connect to a venue's machine by code
+// ============================================
+authRouter.post('/connect-venue', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { venueCode } = z.object({ venueCode: z.string().min(1) }).parse(req.body);
+
+    const venue = await prisma.venue.findUnique({
+      where: { code: venueCode.toUpperCase() },
+      include: { machines: { where: { status: 'ONLINE' }, take: 1 } },
+    });
+
+    if (!venue) throw new AppError('Venue not found. Check the code and try again.', 404);
+    if (venue.machines.length === 0) throw new AppError('No machines online at this venue.', 404);
+
+    const machine = { id: venue.machines[0].id, name: venue.machines[0].name };
+
+    res.json({
+      success: true,
+      data: { venue: { id: venue.id, name: venue.name }, machine },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
