@@ -182,7 +182,7 @@ export const useEventsStore = create<EventsState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.get('/events/pending');
-      set({ pendingEvents: data.data.events });
+      set({ pendingEvents: data.data?.events || [] });
     } finally {
       set({ isLoading: false });
     }

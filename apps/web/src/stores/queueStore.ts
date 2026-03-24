@@ -54,7 +54,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.get(`/machines/${machineId}/queue`);
-      set({ queue: data.data.queue });
+      set({ queue: data.data?.queue || [] });
     } finally {
       set({ isLoading: false });
     }

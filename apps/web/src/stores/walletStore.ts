@@ -36,7 +36,7 @@ export const useWalletStore = create<WalletState>((set) => ({
   fetchWallet: async () => {
     try {
       const { data } = await api.get('/payments/wallet');
-      set({ balance: data.data.balance });
+      set({ balance: data.data?.balance ?? 0 });
     } catch {
       // Wallet may not exist yet
     }
@@ -46,7 +46,7 @@ export const useWalletStore = create<WalletState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await api.get('/payments/history');
-      set({ transactions: data.data.transactions });
+      set({ transactions: data.data?.transactions || [] });
     } finally {
       set({ isLoading: false });
     }
