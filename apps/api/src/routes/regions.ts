@@ -97,6 +97,7 @@ regionRouter.get('/:id/catalog', async (req: Request, res: Response, next: NextF
 
     const entries = await prisma.regionCatalog.findMany({
       where: { regionId: id },
+      include: { genre: { select: { id: true, name: true } } },
       orderBy: { priority: 'desc' },
     });
 

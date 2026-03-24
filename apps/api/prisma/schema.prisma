@@ -144,6 +144,7 @@ model Genre {
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   artists     Artist[]
+  regionCatalogs RegionCatalog[]
   createdAt   DateTime @default(now())
 
   @@index([isActive])
@@ -679,6 +680,7 @@ model RegionCatalog {
   regionId  String
   region    Region  @relation(fields: [regionId], references: [id])
   genreId   String? // If set, entire genre available in region
+  genre     Genre?  @relation(fields: [genreId], references: [id])
   artistId  String? // If set, specific artist available
   songId    String? // If set, specific song available
   priority  Int     @default(0) // Higher = shown first
