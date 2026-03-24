@@ -88,6 +88,7 @@ export const BrowsePage: React.FC = () => {
   const handleCloseModal = useCallback(() => {
     stopPreview();
     setSelectedSong(null);
+    setQueueError('');
   }, [stopPreview]);
 
   // Clean up audio on unmount
@@ -100,17 +101,24 @@ export const BrowsePage: React.FC = () => {
     };
   }, []);
 
+  const [queueError, setQueueError] = useState('');
+
   const handleAddToQueue = async (isPriority: boolean = false) => {
-    if (!selectedSong || !machineId) return;
+    if (!selectedSong) return;
+    if (!machineId) {
+      setQueueError('No machine connected. Please re-enter the venue code.');
+      return;
+    }
     setAddingToQueue(true);
+    setQueueError('');
     try {
       await addToQueue(machineId, selectedSong.id, isPriority);
       setSelectedSong(null);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
       fetchWallet(); // Refresh balance
-    } catch {
-      // Error handling
+    } catch (err: any) {
+      setQueueError(err.response?.data?.error || 'Failed to add song to queue');
     } finally {
       setAddingToQueue(false);
     }
@@ -266,6 +274,7 @@ export const BrowsePage: React.FC = () => {
               </Button>
             </div>
 
+            {queueError && <p className="text-center text-jb-highlight-pink text-sm">{queueError}</p>}
             <p className="text-center text-jb-text-secondary text-xs">
               Your balance: {formatPrice(balance)}
             </p>
