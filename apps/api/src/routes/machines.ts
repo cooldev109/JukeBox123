@@ -121,7 +121,10 @@ machineRouter.get(
         where: { id: machineId },
         include: {
           venue: {
-            select: { id: true, name: true, city: true, state: true, ownerId: true },
+            select: {
+              id: true, name: true, city: true, state: true, address: true, ownerId: true,
+              owner: { select: { name: true, email: true } },
+            },
           },
         },
       });
