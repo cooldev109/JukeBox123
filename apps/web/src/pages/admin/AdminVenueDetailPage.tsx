@@ -9,13 +9,14 @@ const statusColor = (s: string) => {
   return 'text-red-400 bg-red-400/10 border-red-400/30';
 };
 
-type Tab = 'music' | 'revenue' | 'values' | 'settings';
+type Tab = 'music' | 'revenue' | 'users' | 'products' | 'regions' | 'settings';
 
 interface VenueAnalytics {
   venue: {
     id: string; code: string; name: string; address: string;
     city: string; state: string; country: string; status: string;
     owner: { id: string; name: string; email: string };
+    regionId?: string | null;
   };
   machines: { id: string; name: string; status: string; lastHeartbeat: string | null; serialNumber: string }[];
   revenue: { today: number; week: number; month: number; allTime: number; todayCount: number };
@@ -23,6 +24,21 @@ interface VenueAnalytics {
   topSongs: { songId: string; _count: { songId: number } }[];
   commissionSplit: { platform: number; venue: number; affiliate: number; operator: number } | null;
   productPrices: { id: string; price: number; product: { id: string; code: string; name: string; category: string; basePrice: number } }[];
+}
+
+interface VenueUser {
+  id: string; name: string; email?: string; phone?: string; role: string;
+  createdAt: string; _count?: { queueItems: number; transactions: number };
+}
+
+interface VenueProduct {
+  id: string; code: string; name: string; category: string; basePrice: number;
+  venuePrice?: number;
+}
+
+interface VenueRegion {
+  id: string; code: string; name: string;
+  _count: { venues: number; catalogEntries: number };
 }
 
 export const AdminVenueDetailPage: React.FC = () => {
@@ -39,6 +55,15 @@ export const AdminVenueDetailPage: React.FC = () => {
   const [splitSaving, setSplitSaving] = useState(false);
   const [splitError, setSplitError] = useState('');
 
+  // Venue-specific data
+  const [venueUsers, setVenueUsers] = useState<VenueUser[]>([]);
+  const [venueUsersLoading, setVenueUsersLoading] = useState(false);
+  const [venueProducts, setVenueProducts] = useState<VenueProduct[]>([]);
+  const [venueProductsLoading, setVenueProductsLoading] = useState(false);
+  const [venueRegion, setVenueRegion] = useState<VenueRegion | null>(null);
+  const [allRegions, setAllRegions] = useState<VenueRegion[]>([]);
+  const [regionLoading, setRegionLoading] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -54,6 +79,52 @@ export const AdminVenueDetailPage: React.FC = () => {
     }
   }, [data?.commissionSplit]);
 
+  // Load venue-specific users when Users tab opens
+  useEffect(() => {
+    if (tab === 'users' && id && venueUsers.length === 0) {
+      setVenueUsersLoading(true);
+      api.get(`/venues/${id}/users`)
+        .then(res => setVenueUsers(res.data.data?.users || []))
+        .catch(() => setVenueUsers([]))
+        .finally(() => setVenueUsersLoading(false));
+    }
+  }, [tab, id]);
+
+  // Load venue-specific products when Products tab opens
+  useEffect(() => {
+    if (tab === 'products' && id && venueProducts.length === 0) {
+      setVenueProductsLoading(true);
+      api.get(`/products/venue/${id}`)
+        .then(res => {
+          const products = res.data.data?.products || [];
+          setVenueProducts(products);
+        })
+        .catch(() => setVenueProducts([]))
+        .finally(() => setVenueProductsLoading(false));
+    }
+  }, [tab, id]);
+
+  // Load region when Regions tab opens
+  useEffect(() => {
+    if (tab === 'regions' && id) {
+      setRegionLoading(true);
+      // Load all regions
+      api.get('/regions')
+        .then(res => {
+          const regions = res.data.data?.regions || [];
+          setAllRegions(regions);
+          // Find current venue's region
+          const venueRegionId = data?.venue?.regionId;
+          if (venueRegionId) {
+            const found = regions.find((r: VenueRegion) => r.id === venueRegionId);
+            setVenueRegion(found || null);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setRegionLoading(false));
+    }
+  }, [tab, id, data?.venue?.regionId]);
+
   const handleSaveSplit = async () => {
     const sum = splitForm.platform + splitForm.venue + splitForm.affiliate + splitForm.operator;
     if (sum !== 100) {
@@ -65,13 +136,26 @@ export const AdminVenueDetailPage: React.FC = () => {
     try {
       await api.put(`/config/venue/${id}/commission-split`, splitForm);
       setEditSplit(false);
-      // Refresh
       const res = await api.get(`/venues/${id}/analytics`);
       setData(res.data.data);
     } catch (err: any) {
       setSplitError(err.response?.data?.error || 'Failed to save');
     } finally {
       setSplitSaving(false);
+    }
+  };
+
+  const handleAssignRegion = async (regionId: string) => {
+    if (!id) return;
+    try {
+      await api.put(`/venues/${id}`, { regionId: regionId || null });
+      // Refresh
+      const res = await api.get(`/venues/${id}/analytics`);
+      setData(res.data.data);
+      const found = allRegions.find(r => r.id === regionId);
+      setVenueRegion(found || null);
+    } catch {
+      // ignore
     }
   };
 
@@ -104,11 +188,13 @@ export const AdminVenueDetailPage: React.FC = () => {
   const commissionSplit = data.commissionSplit;
   const productPrices = data.productPrices || [];
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'music', label: 'Music & Queue' },
-    { key: 'revenue', label: 'Revenue' },
-    { key: 'values', label: 'Values & Pricing' },
-    { key: 'settings', label: 'Settings' },
+  const tabs: { key: Tab; label: string; icon: string }[] = [
+    { key: 'music', label: 'Music & Queue', icon: '🎵' },
+    { key: 'revenue', label: 'Revenue', icon: '💰' },
+    { key: 'users', label: 'Users', icon: '👥' },
+    { key: 'products', label: 'Products', icon: '🛍️' },
+    { key: 'regions', label: 'Regions', icon: '🌎' },
+    { key: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
   return (
@@ -149,57 +235,19 @@ export const AdminVenueDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Quick Access Management Buttons */}
-      <div className="grid grid-cols-3 desktop:grid-cols-5 gap-3 mb-6">
-        <button
-          onClick={() => navigate('/admin/users')}
-          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-jb-accent-purple/40 hover:bg-jb-accent-purple/5 transition-all group"
-        >
-          <span className="text-2xl">👥</span>
-          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-jb-accent-purple transition-colors">Users</span>
-        </button>
-        <button
-          onClick={() => navigate('/admin/songs')}
-          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-jb-accent-green/40 hover:bg-jb-accent-green/5 transition-all group"
-        >
-          <span className="text-2xl">🎵</span>
-          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-jb-accent-green transition-colors">Music Catalog</span>
-        </button>
-        <button
-          onClick={() => navigate('/admin/products')}
-          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-jb-highlight-pink/40 hover:bg-jb-highlight-pink/5 transition-all group"
-        >
-          <span className="text-2xl">🛍️</span>
-          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-jb-highlight-pink transition-colors">Products</span>
-        </button>
-        <button
-          onClick={() => navigate('/admin/regions')}
-          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-amber-400/40 hover:bg-amber-400/5 transition-all group"
-        >
-          <span className="text-2xl">🌎</span>
-          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-amber-400 transition-colors">Regions</span>
-        </button>
-        <button
-          onClick={() => setTab('settings')}
-          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-cyan-400/40 hover:bg-cyan-400/5 transition-all group"
-        >
-          <span className="text-2xl">⚙️</span>
-          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-cyan-400 transition-colors">Settings</span>
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-white/10">
+      {/* Tabs with icons */}
+      <div className="flex gap-1 mb-6 border-b border-white/10 overflow-x-auto">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
               tab === t.key
                 ? 'text-jb-accent-green border-jb-accent-green'
                 : 'text-jb-text-secondary border-transparent hover:text-jb-text-primary'
             }`}
           >
+            <span className="text-base">{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -301,28 +349,219 @@ export const AdminVenueDetailPage: React.FC = () => {
         </div>
       )}
 
-      {tab === 'values' && (
-        <div className="space-y-6">
-          <h3 className="text-lg font-semibold text-jb-text-primary">Product Pricing</h3>
-          {productPrices.length === 0 ? (
-            <p className="text-jb-text-secondary text-sm">No venue-specific price overrides. Using base prices.</p>
+      {tab === 'users' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-jb-text-primary">Venue Users</h3>
+            <p className="text-jb-text-secondary text-sm">{venueUsers.length} users</p>
+          </div>
+
+          {/* Owner card */}
+          <Card glowColor="green" className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-jb-accent-green/10 border border-jb-accent-green/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-jb-accent-green font-bold text-sm">O</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-jb-text-primary font-medium">{venue.owner.name}</p>
+                <p className="text-jb-text-secondary text-xs">{venue.owner.email}</p>
+              </div>
+              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border text-jb-accent-green bg-jb-accent-green/10 border-jb-accent-green/30">
+                OWNER
+              </span>
+            </div>
+          </Card>
+
+          {/* Venue users (customers who transacted) */}
+          {venueUsersLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} height="56px" rounded="lg" className="w-full" />
+              ))}
+            </div>
+          ) : venueUsers.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-jb-text-secondary">No customer activity at this venue yet</p>
+            </Card>
           ) : (
             <div className="space-y-2">
-              {productPrices.map(pp => (
-                <Card key={pp.id} className="p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-jb-text-primary text-sm font-medium">{pp.product.name}</p>
-                    <p className="text-jb-text-secondary text-xs">{pp.product.code} | {pp.product.category}</p>
+              {venueUsers.map(u => (
+                <Card key={u.id} className="p-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-jb-accent-purple/10 border border-jb-accent-purple/30 flex items-center justify-center flex-shrink-0">
+                    <span className="text-jb-accent-purple font-bold text-xs">{u.name.charAt(0).toUpperCase()}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-jb-accent-green font-bold">{fmt(pp.price)}</p>
-                    {pp.price !== pp.product.basePrice && (
-                      <p className="text-jb-text-secondary text-xs line-through">{fmt(pp.product.basePrice)}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-jb-text-primary text-sm font-medium truncate">{u.name}</p>
+                    <p className="text-jb-text-secondary text-xs truncate">{u.email || u.phone || 'No contact'}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${
+                      u.role === 'CUSTOMER' ? 'text-jb-accent-purple bg-jb-accent-purple/10 border-jb-accent-purple/30'
+                      : u.role === 'AFFILIATE' ? 'text-jb-highlight-pink bg-jb-highlight-pink/10 border-jb-highlight-pink/30'
+                      : 'text-jb-text-secondary bg-white/5 border-white/10'
+                    }`}>
+                      {u.role}
+                    </span>
+                    {u._count && (
+                      <p className="text-jb-text-secondary text-[10px] mt-1">
+                        {u._count.transactions} txns | {u._count.queueItems} songs
+                      </p>
                     )}
                   </div>
                 </Card>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'products' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-jb-text-primary">Venue Products & Pricing</h3>
+          </div>
+          <p className="text-jb-text-secondary text-sm">
+            Products available at <span className="text-jb-accent-green">{venue.name}</span>. Venue prices override base prices.
+          </p>
+
+          {venueProductsLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} height="56px" rounded="lg" className="w-full" />
+              ))}
+            </div>
+          ) : venueProducts.length === 0 ? (
+            <div className="space-y-4">
+              <Card className="p-8 text-center">
+                <p className="text-jb-text-secondary mb-2">No products loaded yet</p>
+                <p className="text-jb-text-secondary/60 text-sm">Configure products in the global Products page first.</p>
+              </Card>
+              {/* Fallback: show analytics product prices */}
+              {productPrices.length > 0 && (
+                <>
+                  <h4 className="text-jb-text-primary font-medium">Price Overrides</h4>
+                  <div className="space-y-2">
+                    {productPrices.map(pp => (
+                      <Card key={pp.id} className="p-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-jb-text-primary text-sm font-medium">{pp.product.name}</p>
+                          <p className="text-jb-text-secondary text-xs">{pp.product.code} | {pp.product.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-jb-accent-green font-bold">{fmt(pp.price)}</p>
+                          {pp.price !== pp.product.basePrice && (
+                            <p className="text-jb-text-secondary text-xs line-through">{fmt(pp.product.basePrice)}</p>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {['MUSIC', 'SPECIAL_EVENT', 'COMBO'].map(cat => {
+                const catProducts = venueProducts.filter(p => p.category === cat);
+                if (catProducts.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <h4 className="text-jb-text-secondary text-xs uppercase tracking-wider font-bold mb-2 mt-4">
+                      {cat === 'MUSIC' ? 'Music' : cat === 'SPECIAL_EVENT' ? 'Special Events' : 'Combos'}
+                    </h4>
+                    {catProducts.map(p => (
+                      <Card key={p.id} className="p-3 flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-jb-text-primary text-sm font-medium">{p.name}</p>
+                          <p className="text-jb-text-secondary text-xs">{p.code}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-jb-accent-green font-bold">{fmt(p.venuePrice ?? p.basePrice)}</p>
+                          {p.venuePrice != null && p.venuePrice !== p.basePrice && (
+                            <p className="text-jb-text-secondary text-xs line-through">{fmt(p.basePrice)}</p>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'regions' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-jb-text-primary">Venue Region</h3>
+          </div>
+          <p className="text-jb-text-secondary text-sm">
+            The region determines which music catalog is available at this venue.
+          </p>
+
+          {regionLoading ? (
+            <Skeleton height="100px" rounded="lg" className="w-full" />
+          ) : (
+            <>
+              {/* Current region */}
+              {venueRegion ? (
+                <Card glowColor="green" className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-jb-accent-green/10 border border-jb-accent-green/30 flex items-center justify-center">
+                        <span className="text-xl">🌎</span>
+                      </div>
+                      <div>
+                        <p className="text-jb-text-primary font-semibold text-lg">{venueRegion.name}</p>
+                        <p className="text-jb-text-secondary text-sm">
+                          Code: <span className="text-jb-accent-green font-mono">{venueRegion.code}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-jb-accent-purple font-bold">{venueRegion._count?.venues || 0} venues</p>
+                      <p className="text-jb-text-secondary text-xs">{venueRegion._count?.catalogEntries || 0} catalog entries</p>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-6 text-center">
+                  <p className="text-jb-text-secondary mb-2">No region assigned</p>
+                  <p className="text-jb-text-secondary/60 text-sm">Assign a region to control which music catalog is available.</p>
+                </Card>
+              )}
+
+              {/* Change region selector */}
+              <Card className="p-4">
+                <h4 className="text-jb-text-primary font-medium mb-3">
+                  {venueRegion ? 'Change Region' : 'Assign Region'}
+                </h4>
+                <div className="flex gap-2 flex-wrap">
+                  {allRegions.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => handleAssignRegion(r.id)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        venueRegion?.id === r.id
+                          ? 'bg-jb-accent-green text-jb-bg-primary'
+                          : 'bg-jb-bg-secondary border border-white/10 text-jb-text-secondary hover:border-jb-accent-green/40 hover:text-jb-text-primary'
+                      }`}
+                    >
+                      {r.name} ({r.code})
+                    </button>
+                  ))}
+                  {venueRegion && (
+                    <button
+                      onClick={() => handleAssignRegion('')}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-jb-bg-secondary border border-white/10 text-red-400 hover:border-red-400/40"
+                    >
+                      Remove Region
+                    </button>
+                  )}
+                </div>
+              </Card>
+            </>
           )}
         </div>
       )}

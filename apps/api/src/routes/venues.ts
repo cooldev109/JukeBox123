@@ -624,6 +624,7 @@ venueRouter.get(
             country: venue.country,
             status: venue.status,
             owner: venue.owner,
+            regionId: venue.regionId,
           },
           machines: venue.machines,
           revenue: {
@@ -639,6 +640,57 @@ venueRouter.get(
           productPrices: venue.productPrices,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ============================================
+// GET /venues/:id/users — Users who transacted at this venue
+// ============================================
+venueRouter.get(
+  '/:id/users',
+  requireAuth,
+  requireRole('ADMIN'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const venueId = req.params.id as string;
+
+      const venue = await prisma.venue.findUnique({
+        where: { id: venueId },
+        select: { id: true, machines: { select: { id: true } } },
+      });
+      if (!venue) throw new AppError('Venue not found', 404);
+
+      const machineIds = venue.machines.map(m => m.id);
+
+      // Find all users who have queue items or transactions at this venue's machines
+      const users = await prisma.user.findMany({
+        where: {
+          OR: [
+            { queueItems: { some: { machineId: { in: machineIds } } } },
+            { transactions: { some: { machineId: { in: machineIds } } } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          createdAt: true,
+          _count: {
+            select: {
+              queueItems: { where: { machineId: { in: machineIds } } },
+              transactions: { where: { machineId: { in: machineIds } } },
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      res.json({ success: true, data: { users } });
     } catch (error) {
       next(error);
     }
