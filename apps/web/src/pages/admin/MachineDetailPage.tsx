@@ -10,13 +10,13 @@ interface MachineDetail {
   status: string;
   lastHeartbeat: string | null;
   config: Record<string, unknown>;
-  venue: {
+  venue?: {
     id: string;
     name: string;
     city: string;
     state: string;
-    address: string | null;
-    owner: { name: string; email: string | null };
+    address?: string | null;
+    owner?: { name: string; email: string | null };
   };
 }
 
@@ -111,15 +111,15 @@ export const MachineDetailPage: React.FC = () => {
           <div className="space-y-2 text-sm">
             <p>
               <span className="text-jb-text-secondary">Bar:</span>{' '}
-              <span className="text-jb-text-primary">{machine.venue.name}</span>
+              <span className="text-jb-text-primary">{machine.venue?.name || 'N/A'}</span>
             </p>
             <p>
               <span className="text-jb-text-secondary">City:</span>{' '}
               <span className="text-jb-text-primary">
-                {machine.venue.city}, {machine.venue.state}
+                {machine.venue?.city || 'N/A'}, {machine.venue?.state || ''}
               </span>
             </p>
-            {machine.venue.address && (
+            {machine.venue?.address && (
               <p>
                 <span className="text-jb-text-secondary">Address:</span>{' '}
                 <span className="text-jb-text-primary">
@@ -130,7 +130,7 @@ export const MachineDetailPage: React.FC = () => {
             <p>
               <span className="text-jb-text-secondary">Owner:</span>{' '}
               <span className="text-jb-text-primary">
-                {machine.venue.owner.name}
+                {machine.venue?.owner?.name || 'N/A'}
               </span>
             </p>
             {machine.lastHeartbeat && (

@@ -134,7 +134,7 @@ export const AdminVenueDetailPage: React.FC = () => {
       {/* Machines summary */}
       <div className="grid grid-cols-2 desktop:grid-cols-4 gap-3 mb-6">
         {machines.map(m => (
-          <Card key={m.id} className="p-3">
+          <Card key={m.id} className="p-3 cursor-pointer hover:border-jb-accent-green/30 transition-colors" onClick={() => navigate(`/admin/machines/${m.id}`)}>
             <div className="flex items-center justify-between mb-1">
               <p className="text-jb-text-primary text-sm font-medium truncate">{m.name}</p>
               <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${statusColor(m.status)}`}>
@@ -147,6 +147,45 @@ export const AdminVenueDetailPage: React.FC = () => {
         {machines.length === 0 && (
           <p className="text-jb-text-secondary text-sm col-span-full text-center py-4">No machines registered</p>
         )}
+      </div>
+
+      {/* Quick Access Management Buttons */}
+      <div className="grid grid-cols-3 desktop:grid-cols-5 gap-3 mb-6">
+        <button
+          onClick={() => navigate('/admin/users')}
+          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-jb-accent-purple/40 hover:bg-jb-accent-purple/5 transition-all group"
+        >
+          <span className="text-2xl">👥</span>
+          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-jb-accent-purple transition-colors">Users</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/songs')}
+          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-jb-accent-green/40 hover:bg-jb-accent-green/5 transition-all group"
+        >
+          <span className="text-2xl">🎵</span>
+          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-jb-accent-green transition-colors">Music Catalog</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/products')}
+          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-jb-highlight-pink/40 hover:bg-jb-highlight-pink/5 transition-all group"
+        >
+          <span className="text-2xl">🛍️</span>
+          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-jb-highlight-pink transition-colors">Products</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/regions')}
+          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-amber-400/40 hover:bg-amber-400/5 transition-all group"
+        >
+          <span className="text-2xl">🌎</span>
+          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-amber-400 transition-colors">Regions</span>
+        </button>
+        <button
+          onClick={() => setTab('settings')}
+          className="flex flex-col items-center gap-2 p-4 rounded-xl bg-jb-bg-secondary/50 border border-white/5 hover:border-cyan-400/40 hover:bg-cyan-400/5 transition-all group"
+        >
+          <span className="text-2xl">⚙️</span>
+          <span className="text-jb-text-secondary text-xs font-medium group-hover:text-cyan-400 transition-colors">Settings</span>
+        </button>
       </div>
 
       {/* Tabs */}
