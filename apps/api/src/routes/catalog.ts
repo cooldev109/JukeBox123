@@ -117,7 +117,7 @@ catalogRouter.post(
   requireRole('ADMIN'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       if (!id) throw new AppError('Request ID is required', 400);
 
       const result = await handleSongRequest(id);
@@ -194,11 +194,11 @@ catalogRouter.get('/genres', async (_req: Request, res: Response, next: NextFunc
 // --- GET /catalog/genres/:id/artists ---
 catalogRouter.get('/genres/:id/artists', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const genre = await prisma.genre.findUnique({ where: { id: req.params.id } });
+    const genre = await prisma.genre.findUnique({ where: { id: req.params.id as string } });
     if (!genre) throw new AppError('Genre not found', 404);
 
     const artists = await prisma.artist.findMany({
-      where: { genreId: req.params.id, isActive: true },
+      where: { genreId: req.params.id as string, isActive: true },
       include: { _count: { select: { albums: true } } },
       orderBy: { name: 'asc' },
     });
@@ -209,11 +209,11 @@ catalogRouter.get('/genres/:id/artists', async (req: Request, res: Response, nex
 // --- GET /catalog/artists/:id/albums ---
 catalogRouter.get('/artists/:id/albums', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const artist = await prisma.artist.findUnique({ where: { id: req.params.id } });
+    const artist = await prisma.artist.findUnique({ where: { id: req.params.id as string } });
     if (!artist) throw new AppError('Artist not found', 404);
 
     const albums = await prisma.album.findMany({
-      where: { artistId: req.params.id, isActive: true },
+      where: { artistId: req.params.id as string, isActive: true },
       include: { _count: { select: { songs: true } } },
       orderBy: [{ year: 'desc' }, { name: 'asc' }],
     });
@@ -224,11 +224,11 @@ catalogRouter.get('/artists/:id/albums', async (req: Request, res: Response, nex
 // --- GET /catalog/albums/:id/songs ---
 catalogRouter.get('/albums/:id/songs', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const album = await prisma.album.findUnique({ where: { id: req.params.id } });
+    const album = await prisma.album.findUnique({ where: { id: req.params.id as string } });
     if (!album) throw new AppError('Album not found', 404);
 
     const songs = await prisma.song.findMany({
-      where: { albumId: req.params.id, isActive: true },
+      where: { albumId: req.params.id as string, isActive: true },
       orderBy: [{ trackNumber: 'asc' }, { title: 'asc' }],
     });
     res.json({ success: true, data: { songs } });
@@ -283,11 +283,11 @@ catalogRouter.post('/albums', requireAuth, requireRole('ADMIN'), async (req: Req
 // --- PUT /catalog/genres/:id (admin) ---
 catalogRouter.put('/genres/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const existing = await prisma.genre.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.genre.findUnique({ where: { id: req.params.id as string } });
     if (!existing) throw new AppError('Genre not found', 404);
 
     const data = genreSchema.partial().parse(req.body);
-    const genre = await prisma.genre.update({ where: { id: req.params.id }, data });
+    const genre = await prisma.genre.update({ where: { id: req.params.id as string }, data });
     res.json({ success: true, data: { genre } });
   } catch (err) {
     if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
@@ -298,10 +298,10 @@ catalogRouter.put('/genres/:id', requireAuth, requireRole('ADMIN'), async (req: 
 // --- DELETE /catalog/genres/:id (admin, soft-delete) ---
 catalogRouter.delete('/genres/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const existing = await prisma.genre.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.genre.findUnique({ where: { id: req.params.id as string } });
     if (!existing) throw new AppError('Genre not found', 404);
 
-    await prisma.genre.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.genre.update({ where: { id: req.params.id as string }, data: { isActive: false } });
     res.json({ success: true, message: 'Genre deactivated' });
   } catch (err) { next(err); }
 });
@@ -309,10 +309,10 @@ catalogRouter.delete('/genres/:id', requireAuth, requireRole('ADMIN'), async (re
 // --- DELETE /catalog/artists/:id (admin, soft-delete) ---
 catalogRouter.delete('/artists/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const existing = await prisma.artist.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.artist.findUnique({ where: { id: req.params.id as string } });
     if (!existing) throw new AppError('Artist not found', 404);
 
-    await prisma.artist.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.artist.update({ where: { id: req.params.id as string }, data: { isActive: false } });
     res.json({ success: true, message: 'Artist deactivated' });
   } catch (err) { next(err); }
 });
@@ -320,10 +320,10 @@ catalogRouter.delete('/artists/:id', requireAuth, requireRole('ADMIN'), async (r
 // --- DELETE /catalog/albums/:id (admin, soft-delete) ---
 catalogRouter.delete('/albums/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const existing = await prisma.album.findUnique({ where: { id: req.params.id } });
+    const existing = await prisma.album.findUnique({ where: { id: req.params.id as string } });
     if (!existing) throw new AppError('Album not found', 404);
 
-    await prisma.album.update({ where: { id: req.params.id }, data: { isActive: false } });
+    await prisma.album.update({ where: { id: req.params.id as string }, data: { isActive: false } });
     res.json({ success: true, message: 'Album deactivated' });
   } catch (err) { next(err); }
 });

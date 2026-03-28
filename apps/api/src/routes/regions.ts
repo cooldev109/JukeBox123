@@ -73,7 +73,7 @@ regionRouter.post('/', requireAuth, requireRole('ADMIN'), async (req: Request, r
 regionRouter.put('/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = updateRegionSchema.parse(req.body);
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await prisma.region.findUnique({ where: { id } });
     if (!existing) throw new AppError('Region not found', 404);
@@ -91,7 +91,7 @@ regionRouter.put('/:id', requireAuth, requireRole('ADMIN'), async (req: Request,
 // ============================================
 regionRouter.get('/:id/catalog', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const region = await prisma.region.findUnique({ where: { id } });
     if (!region) throw new AppError('Region not found', 404);
 
@@ -113,7 +113,7 @@ regionRouter.get('/:id/catalog', async (req: Request, res: Response, next: NextF
 regionRouter.post('/:id/catalog', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = addCatalogSchema.parse(req.body);
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const region = await prisma.region.findUnique({ where: { id } });
     if (!region) throw new AppError('Region not found', 404);
@@ -140,7 +140,8 @@ regionRouter.post('/:id/catalog', requireAuth, requireRole('ADMIN'), async (req:
 // ============================================
 regionRouter.delete('/:id/catalog/:entryId', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id, entryId } = req.params;
+    const id = req.params.id as string;
+    const entryId = req.params.entryId as string;
 
     const entry = await prisma.regionCatalog.findUnique({ where: { id: entryId } });
     if (!entry) throw new AppError('Catalog entry not found', 404);

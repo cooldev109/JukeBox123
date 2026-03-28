@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
+import { Prisma } from '@prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -87,7 +88,7 @@ productRouter.get('/all', requireAuth, requireRole('ADMIN'), async (_req: Reques
 // ============================================
 productRouter.get('/venue/:venueId', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { venueId } = req.params;
+    const venueId = req.params.venueId as string;
 
     const venue = await prisma.venue.findUnique({ where: { id: venueId } });
     if (!venue) throw new AppError('Venue not found', 404);
@@ -105,13 +106,13 @@ productRouter.get('/venue/:venueId', async (req: Request, res: Response, next: N
 
     // Merge venue prices: if venue has a price override, use it
     const result = products
-      .filter(p => {
+      .filter((p: any) => {
         const venuePrice = p.venuePrices[0];
         // If venue has explicitly disabled this product, skip it
         if (venuePrice && !venuePrice.isActive) return false;
         return true;
       })
-      .map(p => {
+      .map((p: any) => {
         const venuePrice = p.venuePrices[0];
         return {
           id: p.id,
@@ -124,7 +125,7 @@ productRouter.get('/venue/:venueId', async (req: Request, res: Response, next: N
           hasVenueOverride: !!venuePrice,
           metadata: p.metadata,
           sortOrder: p.sortOrder,
-          comboItems: p.comboItems.map(ci => ({
+          comboItems: p.comboItems.map((ci: any) => ({
             id: ci.id,
             product: ci.product,
             quantity: ci.quantity,
@@ -157,7 +158,7 @@ productRouter.post('/', requireAuth, requireRole('ADMIN'), async (req: Request, 
         category: data.category,
         basePrice: data.basePrice,
         sortOrder: data.sortOrder ?? 0,
-        metadata: data.metadata ?? {},
+        metadata: (data.metadata ?? {}) as Prisma.InputJsonValue,
       },
     });
 
@@ -174,14 +175,14 @@ productRouter.post('/', requireAuth, requireRole('ADMIN'), async (req: Request, 
 productRouter.put('/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = updateProductSchema.parse(req.body);
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) throw new AppError('Product not found', 404);
 
     const product = await prisma.product.update({
       where: { id },
-      data,
+      data: data as Prisma.ProductUpdateInput,
     });
 
     res.json({ success: true, data: { product } });
@@ -196,7 +197,7 @@ productRouter.put('/:id', requireAuth, requireRole('ADMIN'), async (req: Request
 // ============================================
 productRouter.delete('/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing) throw new AppError('Product not found', 404);
@@ -218,7 +219,7 @@ productRouter.delete('/:id', requireAuth, requireRole('ADMIN'), async (req: Requ
 productRouter.post('/:id/combo-items', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = addComboItemSchema.parse(req.body);
-    const comboId = req.params.id;
+    const comboId = req.params.id as string;
 
     const combo = await prisma.product.findUnique({ where: { id: comboId } });
     if (!combo) throw new AppError('Combo product not found', 404);
@@ -249,7 +250,8 @@ productRouter.post('/:id/combo-items', requireAuth, requireRole('ADMIN'), async 
 // ============================================
 productRouter.delete('/:id/combo-items/:itemId', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id, itemId } = req.params;
+    const id = req.params.id as string;
+    const itemId = req.params.itemId as string;
 
     const item = await prisma.comboItem.findUnique({ where: { id: itemId } });
     if (!item) throw new AppError('Combo item not found', 404);
@@ -268,7 +270,7 @@ productRouter.delete('/:id/combo-items/:itemId', requireAuth, requireRole('ADMIN
 // ============================================
 productRouter.get('/venue/:venueId/prices', requireAuth, requireRole('ADMIN', 'BAR_OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { venueId } = req.params;
+    const venueId = req.params.venueId as string;
 
     const venue = await prisma.venue.findUnique({ where: { id: venueId } });
     if (!venue) throw new AppError('Venue not found', 404);
@@ -295,7 +297,7 @@ productRouter.get('/venue/:venueId/prices', requireAuth, requireRole('ADMIN', 'B
 productRouter.put('/venue/:venueId/prices', requireAuth, requireRole('ADMIN', 'BAR_OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = batchVenuePricesSchema.parse(req.body);
-    const { venueId } = req.params;
+    const venueId = req.params.venueId as string;
 
     const venue = await prisma.venue.findUnique({ where: { id: venueId } });
     if (!venue) throw new AppError('Venue not found', 404);

@@ -684,14 +684,14 @@ eventRouter.post(
   requireRole('BAR_OWNER', 'ADMIN'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const eventId = req.params.id;
+      const eventId = req.params.id as string;
       const approverId = req.user!.userId;
 
       const event = await prisma.specialEvent.findUnique({
         where: { id: eventId },
         include: {
-          machine: { select: { venueId: true, venue: { select: { ownerId: true } } } },
-          user: { select: { name: true } },
+          machine: { include: { venue: true } },
+          user: true,
         },
       });
 
@@ -744,12 +744,12 @@ eventRouter.post(
   requireRole('BAR_OWNER', 'ADMIN'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const eventId = req.params.id;
+      const eventId = req.params.id as string;
 
       const event = await prisma.specialEvent.findUnique({
         where: { id: eventId },
         include: {
-          machine: { select: { venueId: true, venue: { select: { ownerId: true } } } },
+          machine: { include: { venue: true } },
         },
       });
 

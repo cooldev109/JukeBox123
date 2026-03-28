@@ -242,7 +242,7 @@ revenueRouter.get('/admin/export', requireAuth, requireRole('ADMIN'), requireRev
 // ============================================
 revenueRouter.get('/venue/:id', requireAuth, requireRole('BAR_OWNER', 'ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { startDate, endDate, type } = req.query;
 
     const venue = await prisma.venue.findUnique({ where: { id } });
@@ -273,7 +273,7 @@ revenueRouter.get('/venue/:id', requireAuth, requireRole('BAR_OWNER', 'ADMIN'), 
     });
 
     const total = transactions.reduce((sum, t) => sum + t.amount, 0);
-    const venueCut = transactions.reduce((sum, t) => {
+    const venueCut = transactions.reduce((sum, t: any) => {
       return sum + (t.revenueSplits[0]?.venueAmount ?? 0);
     }, 0);
 

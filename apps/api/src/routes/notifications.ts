@@ -113,7 +113,7 @@ notificationRouter.get(
       const userId = req.user!.userId;
       const role = req.user!.role;
 
-      let alerts;
+      let alerts: any[] = [];
 
       if (role === 'ADMIN') {
         // Admin sees all alerts
@@ -223,7 +223,7 @@ notificationRouter.post(
   requireRole('ADMIN', 'BAR_OWNER', 'EMPLOYEE'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const alertId = req.params.id;
+      const alertId = req.params.id as string;
       const userId = req.user!.userId;
 
       const alert = await prisma.machineAlert.findUnique({

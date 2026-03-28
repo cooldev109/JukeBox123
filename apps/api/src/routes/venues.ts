@@ -536,7 +536,7 @@ venueRouter.get(
   requireRole('ADMIN', 'BAR_OWNER'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const venue = await prisma.venue.findUnique({
         where: { id },

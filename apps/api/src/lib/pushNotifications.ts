@@ -11,6 +11,7 @@ let webPush: any = null;
 async function getWebPush() {
   if (webPush) return webPush;
   try {
+    // @ts-expect-error - web-push is an optional dependency
     webPush = await import('web-push');
     if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
       webPush.setVapidDetails(

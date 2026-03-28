@@ -230,7 +230,7 @@ configRouter.put('/commission-split', requireAuth, requireRole('ADMIN'), async (
 // ============================================
 configRouter.get('/venue/:id/commission-split', requireAuth, requireRole('ADMIN', 'BAR_OWNER'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const venue = await prisma.venue.findUnique({ where: { id } });
     if (!venue) throw new AppError('Venue not found', 404);
 
@@ -254,7 +254,7 @@ configRouter.get('/venue/:id/commission-split', requireAuth, requireRole('ADMIN'
 configRouter.put('/venue/:id/commission-split', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = commissionSplitSchema.parse(req.body);
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const venue = await prisma.venue.findUnique({ where: { id } });
     if (!venue) throw new AppError('Venue not found', 404);
