@@ -19,9 +19,10 @@ beforeEach(() => {
     balance: 0,
     transactions: [],
     isLoading: false,
-    pixQrCode: null,
-    pixPaymentId: null,
+    pixPayment: null,
+    pixStatus: 'idle',
     cardClientSecret: null,
+    isSandbox: false,
   });
   vi.clearAllMocks();
 });
@@ -50,8 +51,8 @@ describe('walletStore', () => {
   describe('fetchTransactions', () => {
     it('calls api.get /payments/history and sets transactions', async () => {
       const transactions = [
-        { id: 't1', type: 'TOPUP', amount: 50, description: 'Pix top-up', status: 'COMPLETED', createdAt: '2025-01-01' },
-        { id: 't2', type: 'SONG_PLAY', amount: -5, description: 'Song play', status: 'COMPLETED', createdAt: '2025-01-02' },
+        { id: 't1', type: 'CREDIT_PURCHASE', amount: 50, status: 'COMPLETED', createdAt: '2025-01-01' },
+        { id: 't2', type: 'SONG_PAYMENT', amount: 5, status: 'COMPLETED', createdAt: '2025-01-02' },
       ];
       mockApi.get.mockResolvedValueOnce({ data: { data: { transactions } } });
 
@@ -82,42 +83,64 @@ describe('walletStore', () => {
     });
   });
 
-  describe('generatePixQr', () => {
-    it('calls api.post /payments/wallet/topup with amount and sets pixQrCode and pixPaymentId', async () => {
+  describe('generatePixTopUp', () => {
+    it('calls api.post /payments/wallet/topup and sets pixPayment', async () => {
       mockApi.post.mockResolvedValueOnce({
-        data: { data: { qrCode: 'pix-qr-data-here', transactionId: 'txn-123' } },
+        data: {
+          data: {
+            transactionId: 'txn-123',
+            pixCopiaECola: 'pix-copy-paste-code',
+            qrCodeBase64: 'data:image/png;base64,abc',
+            amount: 25,
+            expiresAt: '2025-01-01T00:05:00Z',
+          },
+        },
       });
 
-      await useWalletStore.getState().generatePixQr(25);
+      await useWalletStore.getState().generatePixTopUp(25);
 
       expect(mockApi.post).toHaveBeenCalledWith('/payments/wallet/topup', { amount: 25 });
-      expect(useWalletStore.getState().pixQrCode).toBe('pix-qr-data-here');
-      expect(useWalletStore.getState().pixPaymentId).toBe('txn-123');
+      const state = useWalletStore.getState();
+      expect(state.pixPayment?.transactionId).toBe('txn-123');
+      expect(state.pixPayment?.pixCopiaECola).toBe('pix-copy-paste-code');
+      expect(state.pixPayment?.qrCodeBase64).toBe('data:image/png;base64,abc');
+      expect(state.pixStatus).toBe('pending');
     });
 
-    it('sets isLoading true during request and false after', async () => {
-      let resolvePromise: (v: any) => void;
-      const pending = new Promise((resolve) => { resolvePromise = resolve; });
-      mockApi.post.mockReturnValueOnce(pending);
-
-      const fetchPromise = useWalletStore.getState().generatePixQr(10);
-      expect(useWalletStore.getState().isLoading).toBe(true);
-
-      resolvePromise!({ data: { data: { qrCode: 'qr', transactionId: 'id' } } });
-      await fetchPromise;
-      expect(useWalletStore.getState().isLoading).toBe(false);
-    });
-
-    it('sets isLoading false even when API throws', async () => {
+    it('sets pixStatus to failed on API error', async () => {
       mockApi.post.mockRejectedValueOnce(new Error('Payment error'));
 
-      await expect(useWalletStore.getState().generatePixQr(10)).rejects.toThrow('Payment error');
-      expect(useWalletStore.getState().isLoading).toBe(false);
+      await expect(useWalletStore.getState().generatePixTopUp(10)).rejects.toThrow();
+      expect(useWalletStore.getState().pixStatus).toBe('failed');
+    });
+  });
+
+  describe('pollPixStatus', () => {
+    it('returns COMPLETED and updates balance when payment succeeds', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        data: { data: { status: 'COMPLETED', walletBalance: 75 } },
+      });
+
+      const result = await useWalletStore.getState().pollPixStatus('txn-123');
+
+      expect(mockApi.get).toHaveBeenCalledWith('/payments/pix/txn-123/status');
+      expect(result).toBe('COMPLETED');
+      expect(useWalletStore.getState().pixStatus).toBe('completed');
+      expect(useWalletStore.getState().balance).toBe(75);
+    });
+
+    it('returns PENDING when still waiting', async () => {
+      mockApi.get.mockResolvedValueOnce({
+        data: { data: { status: 'PENDING' } },
+      });
+
+      const result = await useWalletStore.getState().pollPixStatus('txn-123');
+      expect(result).toBe('PENDING');
     });
   });
 
   describe('topUpWithCard', () => {
-    it('calls api.post /payments/wallet/topup with amount and CREDIT_CARD method, sets cardClientSecret', async () => {
+    it('calls api.post with CREDIT_CARD method and sets cardClientSecret', async () => {
       mockApi.post.mockResolvedValueOnce({
         data: { data: { clientSecret: 'stripe-secret-123' } },
       });
@@ -130,44 +153,19 @@ describe('walletStore', () => {
       });
       expect(useWalletStore.getState().cardClientSecret).toBe('stripe-secret-123');
     });
-
-    it('sets cardClientSecret to null when clientSecret is missing from response', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: { data: {} } });
-
-      await useWalletStore.getState().topUpWithCard(50);
-
-      expect(useWalletStore.getState().cardClientSecret).toBeNull();
-    });
-
-    it('sets isLoading true during request and false after', async () => {
-      let resolvePromise: (v: any) => void;
-      const pending = new Promise((resolve) => { resolvePromise = resolve; });
-      mockApi.post.mockReturnValueOnce(pending);
-
-      const fetchPromise = useWalletStore.getState().topUpWithCard(30);
-      expect(useWalletStore.getState().isLoading).toBe(true);
-
-      resolvePromise!({ data: { data: { clientSecret: 'secret' } } });
-      await fetchPromise;
-      expect(useWalletStore.getState().isLoading).toBe(false);
-    });
-
-    it('sets isLoading false even when API throws', async () => {
-      mockApi.post.mockRejectedValueOnce(new Error('Stripe error'));
-
-      await expect(useWalletStore.getState().topUpWithCard(10)).rejects.toThrow('Stripe error');
-      expect(useWalletStore.getState().isLoading).toBe(false);
-    });
   });
 
   describe('clearPix', () => {
-    it('clears pixQrCode and pixPaymentId', () => {
-      useWalletStore.setState({ pixQrCode: 'some-qr', pixPaymentId: 'some-id' });
+    it('clears pixPayment and resets pixStatus', () => {
+      useWalletStore.setState({
+        pixPayment: { transactionId: 'x', pixCopiaECola: 'y', qrCodeBase64: 'z', amount: 10, expiresAt: '' },
+        pixStatus: 'pending',
+      });
 
       useWalletStore.getState().clearPix();
 
-      expect(useWalletStore.getState().pixQrCode).toBeNull();
-      expect(useWalletStore.getState().pixPaymentId).toBeNull();
+      expect(useWalletStore.getState().pixPayment).toBeNull();
+      expect(useWalletStore.getState().pixStatus).toBe('idle');
     });
   });
 

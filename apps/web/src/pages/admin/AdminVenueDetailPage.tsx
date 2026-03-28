@@ -17,6 +17,8 @@ interface VenueAnalytics {
     city: string; state: string; country: string; status: string;
     owner: { id: string; name: string; email: string };
     regionId?: string | null;
+    pixKey?: string | null;
+    pixKeyType?: string | null;
   };
   machines: { id: string; name: string; status: string; lastHeartbeat: string | null; serialNumber: string }[];
   revenue: { today: number; week: number; month: number; allTime: number; todayCount: number };
@@ -55,6 +57,13 @@ export const AdminVenueDetailPage: React.FC = () => {
   const [splitSaving, setSplitSaving] = useState(false);
   const [splitError, setSplitError] = useState('');
 
+  // Pix key editing
+  const [pixKey, setPixKey] = useState('');
+  const [pixKeyType, setPixKeyType] = useState('CPF');
+  const [pixSaving, setPixSaving] = useState(false);
+  const [pixSaved, setPixSaved] = useState(false);
+  const [pixError, setPixError] = useState('');
+
   // Venue-specific data
   const [venueUsers, setVenueUsers] = useState<VenueUser[]>([]);
   const [venueUsersLoading, setVenueUsersLoading] = useState(false);
@@ -77,7 +86,57 @@ export const AdminVenueDetailPage: React.FC = () => {
     if (data?.commissionSplit) {
       setSplitForm(data.commissionSplit);
     }
-  }, [data?.commissionSplit]);
+    if (data?.venue) {
+      setPixKey(data.venue.pixKey || '');
+      setPixKeyType(data.venue.pixKeyType || 'CPF');
+    }
+  }, [data?.commissionSplit, data?.venue]);
+
+  // Load venue-specific users when Users tab opens
+  useEffect(() => {
+    if (tab === 'users' && id && venueUsers.length === 0) {
+      setVenueUsersLoading(true);
+      api.get(`/venues/${id}/users`)
+        .then(res => setVenueUsers(res.data.data?.users || []))
+        .catch(() => setVenueUsers([]))
+        .finally(() => setVenueUsersLoading(false));
+    }
+  }, [tab, id]);
+
+  // Load venue-specific products when Products tab opens
+  useEffect(() => {
+    if (tab === 'products' && id && venueProducts.length === 0) {
+      setVenueProductsLoading(true);
+      api.get(`/products/venue/${id}`)
+        .then(res => {
+          const products = res.data.data?.products || [];
+          setVenueProducts(products);
+        })
+        .catch(() => setVenueProducts([]))
+        .finally(() => setVenueProductsLoading(false));
+    }
+  }, [tab, id]);
+
+  // Load region when Regions tab opens
+  useEffect(() => {
+    if (tab === 'regions' && id) {
+      setRegionLoading(true);
+      // Load all regions
+      api.get('/regions')
+        .then(res => {
+          const regions = res.data.data?.regions || [];
+          setAllRegions(regions);
+          // Find current venue's region
+          const venueRegionId = data?.venue?.regionId;
+          if (venueRegionId) {
+            const found = regions.find((r: VenueRegion) => r.id === venueRegionId);
+            setVenueRegion(found || null);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setRegionLoading(false));
+    }
+  }, [tab, id, data?.venue?.regionId]);
 
   // Load venue-specific users when Users tab opens
   useEffect(() => {
@@ -142,6 +201,22 @@ export const AdminVenueDetailPage: React.FC = () => {
       setSplitError(err.response?.data?.error || 'Failed to save');
     } finally {
       setSplitSaving(false);
+    }
+  };
+
+  const handleSavePixKey = async () => {
+    if (!id) return;
+    if (!pixKey.trim()) { setPixError('Enter a Pix key'); return; }
+    setPixSaving(true);
+    setPixError('');
+    try {
+      await api.put('/payments/pix/venue-key', { venueId: id, pixKey: pixKey.trim(), pixKeyType });
+      setPixSaved(true);
+      setTimeout(() => setPixSaved(false), 2000);
+    } catch (err: any) {
+      setPixError(err.response?.data?.error || 'Failed to save Pix key');
+    } finally {
+      setPixSaving(false);
     }
   };
 
@@ -630,6 +705,40 @@ export const AdminVenueDetailPage: React.FC = () => {
             {!commissionSplit && !editSplit && (
               <p className="text-jb-text-secondary text-xs mt-2">No venue override — using global default split.</p>
             )}
+          </Card>
+
+          {/* Pix Key Management */}
+          <Card className="p-4">
+            <h3 className="text-jb-text-primary font-semibold mb-3">Pix Key</h3>
+            <p className="text-jb-text-secondary text-xs mb-3">
+              Set the venue&apos;s Pix key for receiving payments.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-jb-text-secondary text-xs mb-1">Key Type</label>
+                <select
+                  value={pixKeyType}
+                  onChange={(e) => setPixKeyType(e.target.value)}
+                  className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg text-jb-text-primary px-3 py-2 text-sm focus:outline-none focus:border-jb-accent-purple"
+                >
+                  <option value="CPF">CPF</option>
+                  <option value="CNPJ">CNPJ</option>
+                  <option value="EMAIL">Email</option>
+                  <option value="PHONE">Phone</option>
+                  <option value="EVP">Random Key (EVP)</option>
+                </select>
+              </div>
+              <Input
+                label="Pix Key"
+                value={pixKey}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPixKey(e.target.value)}
+                placeholder={pixKeyType === 'EMAIL' ? 'email@example.com' : pixKeyType === 'PHONE' ? '+5511...' : ''}
+              />
+              {pixError && <p className="text-red-400 text-xs">{pixError}</p>}
+              <Button variant="primary" size="sm" fullWidth loading={pixSaving} onClick={handleSavePixKey}>
+                {pixSaved ? 'Saved!' : 'Save Pix Key'}
+              </Button>
+            </div>
           </Card>
 
           {/* Machines */}

@@ -12,6 +12,14 @@ interface VenueProduct {
   price: number;
 }
 
+const PIX_KEY_TYPES = [
+  { value: 'CPF', label: 'CPF' },
+  { value: 'CNPJ', label: 'CNPJ' },
+  { value: 'EMAIL', label: 'Email' },
+  { value: 'PHONE', label: 'Phone' },
+  { value: 'EVP', label: 'Random Key (EVP)' },
+] as const;
+
 export const OwnerSettingsPage: React.FC = () => {
   const { venue, playlists, fetchVenue, fetchPlaylists, updatePricing, updateSettings } = useBarOwnerStore();
 
@@ -29,6 +37,13 @@ export const OwnerSettingsPage: React.FC = () => {
   const [productsSaved, setProductsSaved] = useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
 
+  // Pix key state
+  const [pixKey, setPixKey] = useState('');
+  const [pixKeyType, setPixKeyType] = useState('CPF');
+  const [pixSaving, setPixSaving] = useState(false);
+  const [pixSaved, setPixSaved] = useState(false);
+  const [pixError, setPixError] = useState('');
+
   useEffect(() => {
     fetchVenue();
     fetchPlaylists();
@@ -39,6 +54,10 @@ export const OwnerSettingsPage: React.FC = () => {
       setSongPrice(venue.settings.songPrice || 200);
       setPriorityPrice(venue.settings.priorityPrice || 500);
       setAutoPlayPlaylistId(venue.settings.autoPlayPlaylistId || '');
+    }
+    if (venue) {
+      setPixKey((venue as any).pixKey || '');
+      setPixKeyType((venue as any).pixKeyType || 'CPF');
     }
   }, [venue]);
 
@@ -92,6 +111,26 @@ export const OwnerSettingsPage: React.FC = () => {
       // Handle error
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePixKey = async () => {
+    if (!venue?.id) return;
+    if (!pixKey.trim()) { setPixError('Enter your Pix key'); return; }
+    setPixSaving(true);
+    setPixError('');
+    try {
+      await api.put('/payments/pix/venue-key', {
+        venueId: venue.id,
+        pixKey: pixKey.trim(),
+        pixKeyType,
+      });
+      setPixSaved(true);
+      setTimeout(() => setPixSaved(false), 2000);
+    } catch (err: any) {
+      setPixError(err.response?.data?.error || 'Failed to save Pix key');
+    } finally {
+      setPixSaving(false);
     }
   };
 
@@ -164,6 +203,44 @@ export const OwnerSettingsPage: React.FC = () => {
             <p className="text-jb-text-secondary text-xs">= R$ {(priorityPrice / 100).toFixed(2)} per VIP song</p>
             <Button variant="primary" fullWidth loading={saving} onClick={handleSavePricing}>
               {saved ? 'Saved!' : 'Save Pricing'}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Pix Key */}
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-jb-text-primary mb-2">Pix Key</h3>
+          <p className="text-jb-text-secondary text-sm mb-4">
+            Set your Pix key to receive payments from customers. This is the bank account where song payments will be deposited.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-jb-text-secondary text-xs mb-1">Key Type</label>
+              <select
+                value={pixKeyType}
+                onChange={(e) => setPixKeyType(e.target.value)}
+                className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg text-jb-text-primary px-4 py-3 focus:outline-none focus:border-jb-accent-purple"
+              >
+                {PIX_KEY_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <Input
+              label={`Pix Key (${pixKeyType})`}
+              placeholder={
+                pixKeyType === 'CPF' ? '000.000.000-00'
+                : pixKeyType === 'CNPJ' ? '00.000.000/0000-00'
+                : pixKeyType === 'EMAIL' ? 'you@email.com'
+                : pixKeyType === 'PHONE' ? '+5511999999999'
+                : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+              }
+              value={pixKey}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPixKey(e.target.value)}
+            />
+            {pixError && <p className="text-jb-highlight-pink text-xs">{pixError}</p>}
+            <Button variant="primary" fullWidth loading={pixSaving} onClick={handleSavePixKey}>
+              {pixSaved ? 'Saved!' : 'Save Pix Key'}
             </Button>
           </div>
         </Card>

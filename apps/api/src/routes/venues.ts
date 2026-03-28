@@ -128,8 +128,11 @@ venueRouter.get('/', requireAuth, async (req: Request, res: Response, next: Next
           country: true,
           timezone: true,
           currency: true,
+          settings: true,
           status: true,
           installDate: true,
+          pixKey: true,
+          pixKeyType: true,
           createdAt: true,
           updatedAt: true,
           owner: {

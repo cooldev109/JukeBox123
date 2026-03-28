@@ -34,7 +34,7 @@ beforeEach(() => {
 describe('barOwnerStore', () => {
   describe('fetchVenue', () => {
     it('fetches venues and sets the first one', async () => {
-      const venue = { id: 'v1', code: 'MYBAR', name: 'My Bar', city: 'SP', settings: null };
+      const venue = { id: 'v1', code: 'MYBAR', name: 'My Bar', city: 'SP', pixKey: null, pixKeyType: null, settings: null };
       mockApi.get.mockResolvedValueOnce({ data: { data: { venues: [venue] } } });
 
       await useBarOwnerStore.getState().fetchVenue();
@@ -193,7 +193,7 @@ describe('barOwnerStore', () => {
 
   describe('updatePricing', () => {
     it('calls PUT and updates venue settings', async () => {
-      const venue = { id: 'v1', code: 'BAR', name: 'My Bar', city: 'SP', settings: { songPrice: 200, priorityPrice: 500, autoPlayPlaylistId: null, displayOptions: {} } };
+      const venue = { id: 'v1', code: 'BAR', name: 'My Bar', city: 'SP', pixKey: null, pixKeyType: null, settings: { songPrice: 200, priorityPrice: 500, autoPlayPlaylistId: null, displayOptions: {} } };
       useBarOwnerStore.setState({ venue });
       mockApi.put.mockResolvedValueOnce({});
 
@@ -213,7 +213,7 @@ describe('barOwnerStore', () => {
 
   describe('updateSettings', () => {
     it('calls PUT and merges settings', async () => {
-      const venue = { id: 'v1', code: 'BAR', name: 'My Bar', city: 'SP', settings: { songPrice: 200, priorityPrice: 500, autoPlayPlaylistId: null, displayOptions: {} } };
+      const venue = { id: 'v1', code: 'BAR', name: 'My Bar', city: 'SP', pixKey: null, pixKeyType: null, settings: { songPrice: 200, priorityPrice: 500, autoPlayPlaylistId: null, displayOptions: {} } };
       useBarOwnerStore.setState({ venue });
       mockApi.put.mockResolvedValueOnce({});
 

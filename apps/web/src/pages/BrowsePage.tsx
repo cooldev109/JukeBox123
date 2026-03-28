@@ -13,11 +13,8 @@ const formatDuration = (seconds: number): string => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-const formatPrice = (reais: number): string => {
-  return `R$ ${reais.toFixed(2)}`;
-};
+const formatPrice = (reais: number): string => `R$ ${reais.toFixed(2)}`;
 
-// Genre color mapping for filter chips
 const genreColors: Record<string, string> = {
   Sertanejo: 'from-yellow-600 to-orange-600',
   Rock: 'from-red-600 to-red-800',
@@ -28,28 +25,41 @@ const genreColors: Record<string, string> = {
   'Bossa Nova': 'from-teal-400 to-cyan-600',
   Forró: 'from-orange-500 to-red-500',
   Pagode: 'from-purple-500 to-pink-500',
-  Eletrônica: 'from-cyan-400 to-blue-600',
+  'Eletrônica': 'from-cyan-400 to-blue-600',
 };
+
+const SONG_PRICE = 2.0;
+const VIP_PRICE = 5.0;
 
 export const BrowsePage: React.FC = () => {
   const { songs, genres, isLoading, searchQuery, selectedGenre, fetchSongs, fetchGenres, setSearchQuery, setSelectedGenre } = useSongStore();
-  const { addToQueue, machineId, setMachineId } = useQueueStore();
-  const { balance, fetchWallet } = useWalletStore();
+  const { machineId, setMachineId } = useQueueStore();
+  const { balance, fetchWallet, generatePixForSong, pollPixStatus, simulatePixPayment, spendFromWallet, clearPix, pixPayment, pixStatus, isSandbox, checkProvider } = useWalletStore();
   const { user } = useAuthStore();
 
   const [selectedSong, setSelectedSong] = useState<typeof songs[0] | null>(null);
   const [venueCode, setVenueCode] = useState('');
   const [connectingVenue, setConnectingVenue] = useState(false);
   const [venueError, setVenueError] = useState('');
-  const [addingToQueue, setAddingToQueue] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [queueError, setQueueError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Payment flow state
+  const [paymentStep, setPaymentStep] = useState<'choose' | 'pix-pending' | 'completed' | 'failed'>('choose');
+  const [selectedPayMethod, setSelectedPayMethod] = useState<'wallet' | 'pix'>('wallet');
+  const [pendingPriority, setPendingPriority] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
     fetchGenres();
     fetchSongs();
     fetchWallet();
+    checkProvider();
   }, []);
 
   // Debounced search
@@ -93,38 +103,147 @@ export const BrowsePage: React.FC = () => {
     stopPreview();
     setSelectedSong(null);
     setQueueError('');
-  }, [stopPreview]);
+    setPaymentStep('choose');
+    clearPix();
+    clearInterval(pollRef.current);
+  }, [stopPreview, clearPix]);
 
-  // Clean up audio on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      clearInterval(pollRef.current);
     };
   }, []);
 
-  const [queueError, setQueueError] = useState('');
+  // Start Pix polling when in pix-pending state
+  useEffect(() => {
+    if (paymentStep === 'pix-pending' && pixPayment?.transactionId) {
+      pollRef.current = setInterval(async () => {
+        try {
+          const status = await pollPixStatus(pixPayment.transactionId);
+          if (status === 'COMPLETED') {
+            clearInterval(pollRef.current);
+            setPaymentStep('completed');
+            setShowSuccess(true);
+            setTimeout(() => setShowSuccess(false), 3000);
+            fetchWallet();
+          } else if (status === 'FAILED') {
+            clearInterval(pollRef.current);
+            setPaymentStep('failed');
+          }
+        } catch {
+          // continue polling
+        }
+      }, 3000);
 
-  const handleAddToQueue = async (isPriority: boolean = false) => {
-    if (!selectedSong) return;
-    if (!machineId) {
-      setQueueError('No machine connected. Please re-enter the venue code.');
+      return () => clearInterval(pollRef.current);
+    }
+  }, [paymentStep, pixPayment?.transactionId]);
+
+  // Pay with Wallet
+  const handleWalletPayment = async (isPriority: boolean) => {
+    if (!selectedSong || !machineId) return;
+    const price = isPriority ? VIP_PRICE : SONG_PRICE;
+
+    if (balance < price) {
+      setQueueError(`Insufficient balance. You have ${formatPrice(balance)} but need ${formatPrice(price)}. Top up your wallet first.`);
       return;
     }
-    setAddingToQueue(true);
+
+    setProcessing(true);
     setQueueError('');
     try {
-      await addToQueue(machineId, selectedSong.id, isPriority);
-      setSelectedSong(null);
+      await spendFromWallet(
+        price,
+        isPriority ? 'SKIP_QUEUE' : 'SONG_PAYMENT',
+        machineId,
+        selectedSong.id,
+        isPriority,
+      );
+      setPaymentStep('completed');
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
-      fetchWallet(); // Refresh balance
+      setTimeout(() => {
+        setShowSuccess(false);
+        handleCloseModal();
+      }, 2000);
+      fetchWallet();
     } catch (err: any) {
-      setQueueError(err.response?.data?.error || 'Failed to add song to queue');
+      setQueueError(err.response?.data?.error || 'Payment failed');
     } finally {
-      setAddingToQueue(false);
+      setProcessing(false);
+    }
+  };
+
+  // Pay with Pix (direct)
+  const handlePixPayment = async (isPriority: boolean) => {
+    if (!selectedSong || !machineId) return;
+    const price = isPriority ? VIP_PRICE : SONG_PRICE;
+
+    setProcessing(true);
+    setQueueError('');
+    setPendingPriority(isPriority);
+    try {
+      await generatePixForSong(
+        price,
+        machineId,
+        selectedSong.id,
+        isPriority ? 'SKIP_QUEUE' : 'SONG_PAYMENT',
+      );
+      setPaymentStep('pix-pending');
+    } catch (err: any) {
+      setQueueError(err.response?.data?.error || 'Failed to generate Pix payment');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handlePayment = (isPriority: boolean) => {
+    if (!machineId) {
+      setQueueError('No machine connected. Please enter the venue code above.');
+      return;
+    }
+    if (selectedPayMethod === 'wallet') {
+      handleWalletPayment(isPriority);
+    } else {
+      handlePixPayment(isPriority);
+    }
+  };
+
+  const handleCopyPix = async () => {
+    if (!pixPayment?.pixCopiaECola) return;
+    try {
+      await navigator.clipboard.writeText(pixPayment.pixCopiaECola);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = pixPayment.pixCopiaECola;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleSimulate = async () => {
+    if (!pixPayment?.transactionId) return;
+    try {
+      await simulatePixPayment(pixPayment.transactionId);
+      clearInterval(pollRef.current);
+      setPaymentStep('completed');
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        handleCloseModal();
+      }, 2000);
+      fetchWallet();
+    } catch {
+      setQueueError('Simulation failed');
     }
   };
 
@@ -244,8 +363,13 @@ export const BrowsePage: React.FC = () => {
                   artist={song.artist}
                   coverArtUrl={song.coverArtUrl}
                   duration={formatDuration(song.duration)}
-                  price="R$ 2.00"
-                  onClick={() => setSelectedSong(song)}
+                  price={formatPrice(SONG_PRICE)}
+                  onClick={() => {
+                    setSelectedSong(song);
+                    setPaymentStep('choose');
+                    setQueueError('');
+                    clearPix();
+                  }}
                 />
               </motion.div>
             ))}
@@ -261,6 +385,7 @@ export const BrowsePage: React.FC = () => {
       >
         {selectedSong && (
           <div className="space-y-4">
+            {/* Song Info */}
             <div className="flex items-center gap-4">
               <div
                 className="w-24 h-24 rounded-xl overflow-hidden bg-jb-bg-secondary flex-shrink-0 relative cursor-pointer group"
@@ -275,7 +400,6 @@ export const BrowsePage: React.FC = () => {
                     </svg>
                   </div>
                 )}
-                {/* Play/Pause overlay */}
                 <div className={`absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity ${isPreviewPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
                     {isPreviewPlaying ? (
@@ -299,29 +423,158 @@ export const BrowsePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="border-t border-white/10 pt-4 space-y-3">
-              <Button
-                variant="primary"
-                fullWidth
-                loading={addingToQueue}
-                onClick={() => handleAddToQueue(false)}
-              >
-                Add to Queue — R$ 2.00
-              </Button>
-              <Button
-                variant="danger"
-                fullWidth
-                loading={addingToQueue}
-                onClick={() => handleAddToQueue(true)}
-              >
-                VIP (Skip the Line) — R$ 5.00
-              </Button>
+            <div className="border-t border-white/10 pt-4">
+              {/* === CHOOSE PAYMENT METHOD === */}
+              {paymentStep === 'choose' && (
+                <div className="space-y-3">
+                  {/* Payment method toggle */}
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setSelectedPayMethod('wallet')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        selectedPayMethod === 'wallet'
+                          ? 'bg-jb-accent-green text-jb-bg-primary'
+                          : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
+                      }`}
+                    >
+                      Wallet ({formatPrice(balance)})
+                    </button>
+                    <button
+                      onClick={() => setSelectedPayMethod('pix')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        selectedPayMethod === 'pix'
+                          ? 'bg-jb-accent-green text-jb-bg-primary'
+                          : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
+                      }`}
+                    >
+                      Pix
+                    </button>
+                  </div>
+
+                  {selectedPayMethod === 'wallet' && balance < SONG_PRICE && (
+                    <p className="text-yellow-400 text-xs text-center">
+                      Low balance — top up in the Wallet tab or switch to Pix
+                    </p>
+                  )}
+
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    loading={processing}
+                    onClick={() => handlePayment(false)}
+                  >
+                    Add to Queue — {formatPrice(SONG_PRICE)}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    fullWidth
+                    loading={processing}
+                    onClick={() => handlePayment(true)}
+                  >
+                    VIP (Skip the Line) — {formatPrice(VIP_PRICE)}
+                  </Button>
+                </div>
+              )}
+
+              {/* === PIX PENDING === */}
+              {paymentStep === 'pix-pending' && pixPayment && (
+                <div className="space-y-4">
+                  {/* QR Code */}
+                  <div className="flex justify-center">
+                    <div className="bg-white p-2 rounded-xl">
+                      <img
+                        src={pixPayment.qrCodeBase64}
+                        alt="Pix QR Code"
+                        className="w-48 h-48"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Amount & Status */}
+                  <div className="text-center">
+                    <p className="text-jb-accent-green font-bold text-lg">
+                      {formatPrice(pixPayment.amount)}
+                    </p>
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                      <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                      <p className="text-yellow-400 text-sm">Waiting for payment...</p>
+                    </div>
+                  </div>
+
+                  {/* Copia e Cola */}
+                  <div className="bg-white/5 border border-white/10 rounded-lg p-2">
+                    <p className="text-jb-text-primary text-xs font-mono break-all">
+                      {pixPayment.pixCopiaECola.length > 80
+                        ? pixPayment.pixCopiaECola.slice(0, 80) + '...'
+                        : pixPayment.pixCopiaECola}
+                    </p>
+                  </div>
+
+                  <Button variant="primary" fullWidth onClick={handleCopyPix}>
+                    {copied ? 'Copied!' : 'Copy Pix Code'}
+                  </Button>
+
+                  {isSandbox && (
+                    <Button
+                      variant="ghost"
+                      fullWidth
+                      onClick={handleSimulate}
+                      className="border border-yellow-500/30 text-yellow-400"
+                    >
+                      [SANDBOX] Simulate Payment
+                    </Button>
+                  )}
+
+                  <p className="text-jb-text-secondary text-xs text-center">
+                    Open your bank app, select Pix, paste the code. Song is added automatically after payment.
+                  </p>
+
+                  <Button variant="ghost" fullWidth onClick={() => {
+                    clearInterval(pollRef.current);
+                    clearPix();
+                    setPaymentStep('choose');
+                  }}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
+
+              {/* === COMPLETED === */}
+              {paymentStep === 'completed' && (
+                <div className="text-center py-4 space-y-3">
+                  <div className="w-14 h-14 mx-auto bg-jb-accent-green/20 rounded-full flex items-center justify-center">
+                    <svg className="w-7 h-7 text-jb-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-jb-accent-green font-bold text-lg">Song Added to Queue!</p>
+                  <p className="text-jb-text-secondary text-sm">
+                    {pendingPriority ? 'Your song has been prioritized' : 'Your song will play soon'}
+                  </p>
+                  <Button variant="primary" onClick={handleCloseModal}>
+                    Done
+                  </Button>
+                </div>
+              )}
+
+              {/* === FAILED === */}
+              {paymentStep === 'failed' && (
+                <div className="text-center py-4 space-y-3">
+                  <div className="w-14 h-14 mx-auto bg-jb-highlight-pink/20 rounded-full flex items-center justify-center">
+                    <svg className="w-7 h-7 text-jb-highlight-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <p className="text-jb-highlight-pink font-bold">Payment Failed</p>
+                  <p className="text-jb-text-secondary text-sm">The payment expired or was declined.</p>
+                  <Button variant="primary" onClick={() => { clearPix(); setPaymentStep('choose'); }}>
+                    Try Again
+                  </Button>
+                </div>
+              )}
             </div>
 
             {queueError && <p className="text-center text-jb-highlight-pink text-sm">{queueError}</p>}
-            <p className="text-center text-jb-text-secondary text-xs">
-              Your balance: {formatPrice(balance)}
-            </p>
           </div>
         )}
       </Modal>

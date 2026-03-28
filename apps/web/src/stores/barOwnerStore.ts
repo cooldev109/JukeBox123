@@ -41,7 +41,7 @@ interface Playlist {
 }
 
 interface BarOwnerState {
-  venue: { id: string; code: string; name: string; city: string; settings: VenueSettings | null } | null;
+  venue: { id: string; code: string; name: string; city: string; pixKey: string | null; pixKeyType: string | null; settings: VenueSettings | null } | null;
   machine: Machine | null;
   machines: Machine[];
   selectedMachineId: string | null;

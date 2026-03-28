@@ -81,6 +81,8 @@ model Venue {
   status      VenueStatus @default(ACTIVE)
   installDate DateTime?
   regionId    String?
+  pixKey      String?     // Venue's Pix key (CPF, CNPJ, email, phone, or EVP)
+  pixKeyType  String?     // Type: CPF, CNPJ, EMAIL, PHONE, EVP
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
