@@ -15,7 +15,7 @@ export const OwnerQRCodePage: React.FC = () => {
   }, []);
 
   const qrUrl = venue?.code
-    ? `${baseUrl}/?venue=${encodeURIComponent(venue.code)}`
+    ? `${baseUrl}/browse?venue=${encodeURIComponent(venue.code)}`
     : '';
 
   const handleDownload = useCallback(() => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SearchBar, SongCard, Button, Modal, Skeleton, Input } from '@jukebox/ui';
 import { useSongStore } from '../stores/songStore';
@@ -54,13 +55,41 @@ export const BrowsePage: React.FC = () => {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchGenres();
     fetchSongs();
     fetchWallet();
     checkProvider();
+
+    // Auto-connect if venue code is in URL (e.g., /browse?venue=BAR-CARLOS)
+    const venueFromUrl = searchParams.get('venue');
+    if (venueFromUrl && !machineId) {
+      setVenueCode(venueFromUrl);
+      autoConnectVenue(venueFromUrl);
+    }
   }, []);
+
+  const autoConnectVenue = async (code: string) => {
+    setConnectingVenue(true);
+    setVenueError('');
+    try {
+      const { data } = await api.post('/auth/connect-venue', { venueCode: code.trim().toUpperCase() });
+      const machine = data.data?.machine;
+      if (!machine) { setVenueError('No machines available at this venue'); return; }
+      setMachineId(machine.id);
+      localStorage.setItem('jb_machine_id', machine.id);
+      setVenueCode('');
+      // Remove venue param from URL after connecting
+      searchParams.delete('venue');
+      setSearchParams(searchParams, { replace: true });
+    } catch (err: any) {
+      setVenueError(err.response?.data?.error || 'Venue not found');
+    } finally {
+      setConnectingVenue(false);
+    }
+  };
 
   // Debounced search
   const debounceRef = React.useRef<ReturnType<typeof setTimeout>>();

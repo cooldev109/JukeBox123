@@ -68,15 +68,17 @@ export async function generateAlert(
 /**
  * Check for stale heartbeats and transition machines to OFFLINE
  * Called on a 60-second interval
+ * Only transitions machines that have previously sent a heartbeat (lastHeartbeat is not null)
+ * Machines that never sent a heartbeat stay ONLINE (default state for new/testing machines)
  */
 export async function checkStaleHeartbeats(): Promise<void> {
   const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
 
-  // Find ONLINE machines with stale heartbeats
+  // Find ONLINE machines with stale heartbeats (only those that have sent at least one heartbeat)
   const staleMachines = await prisma.machine.findMany({
     where: {
       status: 'ONLINE',
-      lastHeartbeat: { lt: twoMinutesAgo },
+      lastHeartbeat: { not: null, lt: twoMinutesAgo },
     },
     include: {
       venue: { select: { name: true } },

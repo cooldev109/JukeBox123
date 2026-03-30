@@ -516,10 +516,18 @@ authRouter.post('/connect-venue', requireAuth, async (req: Request, res: Respons
   try {
     const { venueCode } = z.object({ venueCode: z.string().min(1) }).parse(req.body);
 
-    const venue = await prisma.venue.findUnique({
+    // Search by code first, then by name (case-insensitive)
+    let venue = await prisma.venue.findUnique({
       where: { code: venueCode.toUpperCase() },
       include: { machines: { where: { status: 'ONLINE' }, take: 1 } },
     });
+
+    if (!venue) {
+      venue = await prisma.venue.findFirst({
+        where: { name: { contains: venueCode, mode: 'insensitive' } },
+        include: { machines: { where: { status: 'ONLINE' }, take: 1 } },
+      });
+    }
 
     if (!venue) throw new AppError('Venue not found. Check the code and try again.', 404);
     if (venue.machines.length === 0) throw new AppError('No machines online at this venue.', 404);

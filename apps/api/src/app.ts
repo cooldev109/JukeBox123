@@ -60,6 +60,12 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Mercado Pago sends webhooks to /api/payments/pix/webhook (without /v1/)
+  app.post('/api/payments/pix/webhook', (req, res, next) => {
+    req.url = '/pix/webhook';
+    paymentRouter(req, res, next);
+  });
+
   // API routes
   const apiPrefix = '/api/v1';
   app.use(`${apiPrefix}/auth`, authRouter);

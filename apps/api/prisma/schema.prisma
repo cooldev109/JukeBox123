@@ -116,7 +116,7 @@ model Machine {
   venueId          String
   name             String
   serialNumber     String        @unique
-  status           MachineStatus @default(OFFLINE)
+  status           MachineStatus @default(ONLINE)
   lastHeartbeat    DateTime?
   ipAddress        String?
   offlineSongCache String[]      @default([])
