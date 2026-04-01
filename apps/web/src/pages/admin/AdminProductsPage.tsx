@@ -120,8 +120,8 @@ export const AdminProductsPage: React.FC = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-jb-text-primary">Products & Pricing</h2>
+      <div className="flex items-center justify-between mb-6 gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold text-jb-text-primary">Products & Pricing</h2>
         <Button variant="primary" onClick={() => { setCreateModal(true); setFormData({ category: 'SPECIAL_EVENT' }); setError(''); }}>
           + New Product
         </Button>
@@ -155,27 +155,27 @@ export const AdminProductsPage: React.FC = () => {
       ) : (
         <div className="space-y-2">
           {filtered.map((product) => (
-            <Card key={product.id} className={`p-4 ${!product.isActive ? 'opacity-50' : ''}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-jb-text-primary font-medium truncate">{product.name}</p>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${categoryColor(product.category)}`}>
+            <Card key={product.id} className={`p-3 sm:p-4 ${!product.isActive ? 'opacity-50' : ''}`}>
+              <div className="flex items-start sm:items-center justify-between gap-2">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                    <p className="text-jb-text-primary font-medium text-sm sm:text-base break-words">{product.name}</p>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border whitespace-nowrap ${categoryColor(product.category)}`}>
                       {product.category.replace('_', ' ')}
                     </span>
                     {!product.isActive && (
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border text-red-400 bg-red-400/10 border-red-400/30">
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border text-red-400 bg-red-400/10 border-red-400/30 whitespace-nowrap">
                         INACTIVE
                       </span>
                     )}
                   </div>
-                  <p className="text-jb-text-secondary text-xs">
+                  <p className="text-jb-text-secondary text-xs break-words">
                     Code: <span className="font-mono text-jb-accent-green">{product.code}</span>
-                    {' '} | Base Price: <span className="text-jb-accent-green font-bold">R${product.basePrice.toFixed(2)}</span>
-                    {product.description && ` | ${product.description}`}
+                    {' | Base Price: '}<span className="text-jb-accent-green font-bold">R${product.basePrice.toFixed(2)}</span>
+                    {product.description && <><br className="sm:hidden" /><span className="hidden sm:inline"> | </span>{product.description}</>}
                   </p>
                   {product.comboItems && product.comboItems.length > 0 && (
-                    <p className="text-jb-text-secondary text-xs mt-0.5">
+                    <p className="text-jb-text-secondary text-xs mt-0.5 break-words">
                       Includes: {product.comboItems.map(ci => `${ci.product.name}${ci.quantity > 1 ? ` x${ci.quantity}` : ''}`).join(', ')}
                     </p>
                   )}
