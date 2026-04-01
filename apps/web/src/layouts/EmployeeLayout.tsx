@@ -111,7 +111,7 @@ export const EmployeeLayout: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto desktop:p-6 p-4 pt-24 desktop:pt-6">
+      <main className="flex-1 overflow-auto desktop:p-6 p-4 pt-28 desktop:pt-6">
         <Outlet />
       </main>
     </div>
