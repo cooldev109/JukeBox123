@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SearchBar, SongCard, Button, Modal, Skeleton, Input } from '@jukebox/ui';
 import { useSongStore } from '../stores/songStore';
+import { SongDiscoverBot } from '../components/SongDiscoverBot';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
 import { useAuthStore } from '../stores/authStore';
@@ -58,6 +59,7 @@ export const BrowsePage: React.FC = () => {
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverQuery, setDiscoverQuery] = useState('');
   const [addingSong, setAddingSong] = useState<string | null>(null);
+  const [showBot, setShowBot] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
@@ -513,6 +515,22 @@ export const BrowsePage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Song Finder Bot - Floating Button */}
+      <button
+        onClick={() => setShowBot(true)}
+        className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-gradient-to-r from-jb-accent-purple to-jb-highlight-pink rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+        title="Find a song"
+      >
+        <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+        </svg>
+      </button>
+
+      {/* Song Finder Bot - Chat Modal */}
+      <AnimatePresence>
+        {showBot && <SongDiscoverBot onClose={() => setShowBot(false)} />}
+      </AnimatePresence>
 
       {/* Song Detail Modal */}
       <Modal

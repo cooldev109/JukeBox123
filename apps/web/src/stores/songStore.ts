@@ -45,7 +45,7 @@ export const useSongStore = create<SongState>((set, get) => ({
       const genre = params?.genre ?? get().selectedGenre;
       const page = params?.page ?? get().currentPage;
 
-      if (search) query.set('search', search);
+      if (search) query.set('query', search);
       if (genre) query.set('genre', genre);
       query.set('page', String(page));
       query.set('limit', '20');
