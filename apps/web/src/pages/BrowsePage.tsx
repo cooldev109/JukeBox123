@@ -53,6 +53,12 @@ export const BrowsePage: React.FC = () => {
   const [selectedPayMethod, setSelectedPayMethod] = useState<'wallet' | 'pix'>('wallet');
   const [pendingPriority, setPendingPriority] = useState(false);
 
+  // Discover (external search) state
+  const [discoverResults, setDiscoverResults] = useState<any[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverQuery, setDiscoverQuery] = useState('');
+  const [addingSong, setAddingSong] = useState<string | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -276,6 +282,48 @@ export const BrowsePage: React.FC = () => {
     }
   };
 
+  const handleDiscover = async (query: string) => {
+    if (!query.trim()) return;
+    setDiscoverLoading(true);
+    setDiscoverQuery(query);
+    setDiscoverResults([]);
+    try {
+      const { data } = await api.get('/catalog/discover', { params: { query: query.trim(), limit: 10 } });
+      setDiscoverResults(data.data?.songs || []);
+    } catch {
+      setDiscoverResults([]);
+    } finally {
+      setDiscoverLoading(false);
+    }
+  };
+
+  const handleAddFromSource = async (song: any) => {
+    setAddingSong(song.title);
+    try {
+      const { data } = await api.post('/catalog/add-from-source', {
+        title: song.title,
+        artist: song.artist,
+        album: song.album || undefined,
+        genre: song.genre,
+        duration: song.duration,
+        fileUrl: song.fileUrl,
+        coverArtUrl: song.coverArtUrl || undefined,
+        format: song.format || 'MP3',
+        fileSize: song.fileSize || 0,
+      });
+      if (data.success) {
+        // Refresh catalog so the song appears
+        await fetchSongs();
+        setDiscoverResults([]);
+        setDiscoverQuery('');
+      }
+    } catch {
+      setQueueError('Failed to add song');
+    } finally {
+      setAddingSong(null);
+    }
+  };
+
   const handleConnectVenue = async () => {
     if (!venueCode.trim()) { setVenueError('Enter the venue code'); return; }
     setConnectingVenue(true);
@@ -369,6 +417,14 @@ export const BrowsePage: React.FC = () => {
             <div className="text-5xl mb-4">🎵</div>
             <h3 className="text-xl font-bold text-jb-text-primary mb-2">No songs found</h3>
             <p className="text-jb-text-secondary">Try a different search or genre</p>
+            {searchQuery && (
+              <button
+                onClick={() => handleDiscover(searchQuery)}
+                className="mt-4 px-6 py-2 bg-jb-accent-purple text-white rounded-full font-medium hover:opacity-90 transition-all"
+              >
+                Search "{searchQuery}" on Internet Archive
+              </button>
+            )}
           </div>
         ) : (
           <motion.div
@@ -405,6 +461,58 @@ export const BrowsePage: React.FC = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Discover Section — search external sources */}
+      {(discoverResults.length > 0 || discoverLoading) && (
+        <div className="max-w-6xl mx-auto px-4 mt-6">
+          <div className="border-t border-white/10 pt-4">
+            <h3 className="text-lg font-bold text-jb-accent-purple mb-3">
+              Results from Internet Archive: "{discoverQuery}"
+            </h3>
+            {discoverLoading ? (
+              <div className="flex items-center gap-3 py-8 justify-center">
+                <div className="w-6 h-6 border-2 border-jb-accent-purple border-t-transparent rounded-full animate-spin" />
+                <p className="text-jb-text-secondary">Searching external sources...</p>
+              </div>
+            ) : discoverResults.length === 0 ? (
+              <p className="text-jb-text-secondary py-4">No results found on external sources.</p>
+            ) : (
+              <div className="space-y-2">
+                {discoverResults.map((song: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between bg-jb-bg-secondary/50 rounded-xl p-3 border border-white/5">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {song.coverArtUrl ? (
+                        <img src={song.coverArtUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-jb-bg-primary flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6 text-jb-accent-purple" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-jb-text-primary font-medium text-sm truncate">{song.title}</p>
+                        <p className="text-jb-text-secondary text-xs truncate">{song.artist}</p>
+                        <p className="text-jb-text-secondary/60 text-xs">{song.genre} · {formatDuration(song.duration)}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleAddFromSource(song)}
+                      disabled={addingSong === song.title}
+                      className="flex-shrink-0 ml-3 px-4 py-2 bg-jb-accent-green text-jb-bg-primary rounded-full text-sm font-bold hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                      {addingSong === song.title ? 'Adding...' : '+ Add'}
+                    </button>
+                  </div>
+                ))}
+                <p className="text-jb-text-secondary/40 text-xs text-center pt-2">
+                  Songs from Internet Archive (free/open source music)
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Song Detail Modal */}
       <Modal

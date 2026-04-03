@@ -141,6 +141,96 @@ catalogRouter.post(
 );
 
 // ============================================
+// GET /catalog/discover — customer searches external sources for songs not in catalog
+// ============================================
+catalogRouter.get(
+  '/discover',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const params = searchSchema.parse(req.query);
+      if (!params.query || params.query.trim().length < 2) {
+        throw new AppError('Search query must be at least 2 characters', 400);
+      }
+      const results = await searchCatalog(params.query, {
+        genre: params.genre,
+        limit: params.limit,
+      });
+
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+      next(err);
+    }
+  },
+);
+
+// ============================================
+// POST /catalog/add-from-source — customer picks a song from discover results, adds to catalog
+// ============================================
+const addFromSourceSchema = z.object({
+  title: z.string().min(1),
+  artist: z.string().min(1),
+  album: z.string().optional(),
+  genre: z.string().min(1),
+  duration: z.number().int().min(1),
+  fileUrl: z.string().url(),
+  coverArtUrl: z.string().url().optional().nullable(),
+  format: z.enum(['MP3', 'MP4']).default('MP3'),
+  fileSize: z.number().int().min(0).default(0),
+});
+
+catalogRouter.post(
+  '/add-from-source',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = addFromSourceSchema.parse(req.body);
+
+      // Check if song already exists
+      const existing = await prisma.song.findFirst({
+        where: { title: data.title, artist: data.artist },
+      });
+
+      if (existing) {
+        return res.json({
+          success: true,
+          data: { song: existing, alreadyExists: true },
+        });
+      }
+
+      // Import the song
+      const song = await prisma.song.create({
+        data: {
+          title: data.title,
+          artist: data.artist,
+          album: data.album || null,
+          genre: data.genre,
+          duration: data.duration,
+          fileUrl: data.fileUrl,
+          coverArtUrl: data.coverArtUrl || null,
+          format: data.format,
+          fileSize: data.fileSize,
+          isActive: true,
+          metadata: { source: 'customer-discover', importedAt: new Date().toISOString() },
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        data: { song, alreadyExists: false },
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+      next(err);
+    }
+  },
+);
+
+// ============================================
 // HIERARCHICAL CATALOG BROWSE
 // ============================================
 

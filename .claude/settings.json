@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command 'Get-ChildItem -Path '\\\\''.git'\\\\'' -Recurse -File | ForEach-Object { $_.IsReadOnly = $false }; Get-ChildItem -Path '\\\\''.git'\\\\'' -Recurse -Directory | ForEach-Object { $acl = Get-Acl $_.FullName; $rule = New-Object System.Security.AccessControl.FileSystemAccessRule\\('\\\\''Everyone'\\\\'','\\\\''FullControl'\\\\'','\\\\''ContainerInherit,ObjectInherit'\\\\'','\\\\''None'\\\\'','\\\\''Allow'\\\\''\\); $acl.SetAccessRule\\($rule\\); Set-Acl $_.FullName $acl }')",
+      "Bash(/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -Command ':*)"
+    ]
+  }
+}
