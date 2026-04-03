@@ -8,7 +8,7 @@ import { prisma } from '../lib/prisma.js';
  * - Free Music Archive (FMA) — CC-licensed music
  */
 
-const MAX_DURATION_SECONDS = 360; // 6 minutes max per client requirement
+const MAX_DURATION_SECONDS = 300; // 5 minutes max per client requirement
 const ARCHIVE_ORG_SEARCH_URL = 'https://archive.org/advancedsearch.php';
 const ARCHIVE_ORG_METADATA_URL = 'https://archive.org/metadata';
 const ARCHIVE_ORG_DOWNLOAD_URL = 'https://archive.org/download';
