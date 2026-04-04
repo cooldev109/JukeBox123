@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditBadge, Button, Input, Card } from '@jukebox/ui';
 import { useWalletStore } from '../stores/walletStore';
+import { StripeCardForm } from '../components/StripeCardForm';
 
 const TOPUP_OPTIONS = [5, 10, 20, 50];
 
@@ -17,6 +18,7 @@ export const WalletPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
   const [copied, setCopied] = useState(false);
   const [pollError, setPollError] = useState('');
+  const [cardAmount, setCardAmount] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export const WalletPage: React.FC = () => {
   const handleTopUp = (amount: number) => {
     setPollError('');
     if (paymentMethod === 'card') {
+      setCardAmount(amount);
       topUpWithCard(amount);
     } else {
       generatePixTopUp(amount);
@@ -285,20 +288,17 @@ export const WalletPage: React.FC = () => {
                     </Button>
                   </div>
                 ) : cardClientSecret ? (
-                  <div className="text-center space-y-4">
-                    <div className="bg-white/10 p-4 rounded-xl">
-                      <p className="text-jb-accent-purple font-bold text-lg mb-2">Card Payment Ready</p>
-                      <p className="text-jb-text-secondary text-sm">
-                        Complete your payment using Stripe&apos;s secure checkout.
-                      </p>
-                    </div>
-                    <p className="text-jb-accent-green text-xs">
-                      Credits will be added after payment confirmation
-                    </p>
-                    <Button variant="ghost" onClick={() => { clearCard(); setShowTopUp(false); }}>
-                      Cancel
-                    </Button>
-                  </div>
+                  <StripeCardForm
+                    clientSecret={cardClientSecret}
+                    amount={cardAmount}
+                    onSuccess={() => {
+                      clearCard();
+                      fetchWallet();
+                      fetchTransactions();
+                      setShowTopUp(false);
+                    }}
+                    onCancel={() => { clearCard(); }}
+                  />
                 ) : (
                   /* Amount Selection */
                   <div className="space-y-4">
