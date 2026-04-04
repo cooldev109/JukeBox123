@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SearchBar, SongCard, Button, Modal, Skeleton, Input } from '@jukebox/ui';
 import { useSongStore } from '../stores/songStore';
 import { SongDiscoverBot } from '../components/SongDiscoverBot';
+import { StripeCardForm } from '../components/StripeCardForm';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
 import { useAuthStore } from '../stores/authStore';
@@ -50,8 +51,10 @@ export const BrowsePage: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   // Payment flow state
-  const [paymentStep, setPaymentStep] = useState<'choose' | 'pix-pending' | 'completed' | 'failed'>('choose');
-  const [selectedPayMethod, setSelectedPayMethod] = useState<'wallet' | 'pix'>('wallet');
+  const [paymentStep, setPaymentStep] = useState<'choose' | 'pix-pending' | 'card-pending' | 'completed' | 'failed'>('choose');
+  const [selectedPayMethod, setSelectedPayMethod] = useState<'wallet' | 'pix' | 'card'>('wallet');
+  const [cardClientSecret, setCardClientSecret] = useState<string | null>(null);
+  const [cardPayAmount, setCardPayAmount] = useState(0);
   const [pendingPriority, setPendingPriority] = useState(false);
 
   // Discover (external search) state
@@ -142,6 +145,7 @@ export const BrowsePage: React.FC = () => {
     setQueueError('');
     setPaymentStep('choose');
     clearPix();
+    setCardClientSecret(null);
     clearInterval(pollRef.current);
   }, [stopPreview, clearPix]);
 
@@ -237,6 +241,28 @@ export const BrowsePage: React.FC = () => {
     }
   };
 
+  const handleCardPayment = async (isPriority: boolean) => {
+    if (!selectedSong || !machineId) return;
+    setProcessing(true);
+    const amount = isPriority ? VIP_PRICE : SONG_PRICE;
+    setPendingPriority(isPriority);
+    setCardPayAmount(amount);
+    try {
+      const { data } = await api.post('/payments/card', {
+        amount,
+        type: isPriority ? 'SKIP_QUEUE' : 'SONG_PAYMENT',
+        machineId,
+        songId: selectedSong.id,
+      });
+      setCardClientSecret(data.data.clientSecret);
+      setPaymentStep('card-pending' as any);
+    } catch (err: any) {
+      setQueueError(err.response?.data?.error || 'Card payment failed');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handlePayment = (isPriority: boolean) => {
     if (!machineId) {
       setQueueError('No machine connected. Please enter the venue code above.');
@@ -244,6 +270,8 @@ export const BrowsePage: React.FC = () => {
     }
     if (selectedPayMethod === 'wallet') {
       handleWalletPayment(isPriority);
+    } else if (selectedPayMethod === 'card') {
+      handleCardPayment(isPriority);
     } else {
       handlePixPayment(isPriority);
     }
@@ -604,6 +632,16 @@ export const BrowsePage: React.FC = () => {
                     >
                       Pix
                     </button>
+                    <button
+                      onClick={() => setSelectedPayMethod('card')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        selectedPayMethod === 'card'
+                          ? 'bg-jb-accent-purple text-white'
+                          : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
+                      }`}
+                    >
+                      Card
+                    </button>
                   </div>
 
                   {selectedPayMethod === 'wallet' && balance < SONG_PRICE && (
@@ -692,6 +730,28 @@ export const BrowsePage: React.FC = () => {
                     Cancel
                   </Button>
                 </div>
+              )}
+
+              {/* === CARD PENDING === */}
+              {paymentStep === 'card-pending' && cardClientSecret && (
+                <StripeCardForm
+                  clientSecret={cardClientSecret}
+                  amount={cardPayAmount}
+                  onSuccess={() => {
+                    setCardClientSecret(null);
+                    setPaymentStep('completed');
+                    setShowSuccess(true);
+                    fetchWallet();
+                    setTimeout(() => {
+                      setShowSuccess(false);
+                      handleCloseModal();
+                    }, 2000);
+                  }}
+                  onCancel={() => {
+                    setCardClientSecret(null);
+                    setPaymentStep('choose');
+                  }}
+                />
               )}
 
               {/* === COMPLETED === */}
