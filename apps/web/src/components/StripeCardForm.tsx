@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@jukebox/ui';
-
-/**
- * Stripe Card Payment Form
- * Uses Stripe.js loaded dynamically — no npm package needed.
- * Renders a Stripe Payment Element for secure card input.
- */
 
 interface StripeCardFormProps {
   clientSecret: string;
@@ -24,39 +18,54 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({
 }) => {
   const [stripe, setStripe] = useState<any>(null);
   const [elements, setElements] = useState<any>(null);
+  const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const cardRef = React.useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(true);
 
-  // Load Stripe.js dynamically
   useEffect(() => {
+    mountedRef.current = true;
+    loadStripe();
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const loadStripe = () => {
     if ((window as any).Stripe) {
       initStripe((window as any).Stripe);
       return;
     }
 
+    // Check if script is already loading
+    const existing = document.getElementById('stripe-js');
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if ((window as any).Stripe && mountedRef.current) initStripe((window as any).Stripe);
+      });
+      return;
+    }
+
     const script = document.createElement('script');
+    script.id = 'stripe-js';
     script.src = 'https://js.stripe.com/v3/';
     script.async = true;
     script.onload = () => {
-      if ((window as any).Stripe) {
-        initStripe((window as any).Stripe);
-      }
+      if ((window as any).Stripe && mountedRef.current) initStripe((window as any).Stripe);
     };
     script.onerror = () => {
-      setError('Failed to load payment system. Please try again.');
-      setLoading(false);
+      if (mountedRef.current) {
+        setError('Failed to load payment system. Please try again.');
+        setLoading(false);
+      }
     };
     document.head.appendChild(script);
-  }, []);
+  };
 
   const initStripe = (StripeConstructor: any) => {
     try {
       const stripeInstance = StripeConstructor(STRIPE_PUBLISHABLE_KEY);
-      setStripe(stripeInstance);
-
       const elementsInstance = stripeInstance.elements({
         clientSecret,
         appearance: {
@@ -86,32 +95,45 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({
       });
 
       const paymentElement = elementsInstance.create('payment');
-      if (cardRef.current) {
-        paymentElement.mount(cardRef.current);
-      }
 
+      paymentElement.on('ready', () => {
+        if (mountedRef.current) {
+          setReady(true);
+          setLoading(false);
+        }
+      });
+
+      paymentElement.on('loaderror', (event: any) => {
+        if (mountedRef.current) {
+          setError(event.error?.message || 'Failed to load payment form');
+          setLoading(false);
+        }
+      });
+
+      // Mount after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        if (cardRef.current && mountedRef.current) {
+          paymentElement.mount(cardRef.current);
+        }
+      }, 100);
+
+      setStripe(stripeInstance);
       setElements(elementsInstance);
-      setLoading(false);
     } catch (err: any) {
-      setError('Failed to initialize payment form.');
-      setLoading(false);
+      if (mountedRef.current) {
+        setError('Failed to initialize payment form.');
+        setLoading(false);
+      }
     }
   };
 
   const handlePay = async () => {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !ready) return;
 
     setPaying(true);
     setError('');
 
     try {
-      const { error: submitError } = await elements.submit();
-      if (submitError) {
-        setError(submitError.message || 'Validation error');
-        setPaying(false);
-        return;
-      }
-
       const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -129,12 +151,16 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({
       if (paymentIntent?.status === 'succeeded') {
         setSuccess(true);
         setTimeout(() => onSuccess(), 1500);
+      } else if (paymentIntent?.status === 'requires_action') {
+        // 3D Secure — Stripe handles this automatically
+        setError('Additional authentication required. Please complete the verification.');
+        setPaying(false);
       } else {
         setError('Payment was not completed. Please try again.');
+        setPaying(false);
       }
     } catch (err: any) {
       setError(err.message || 'Payment failed');
-    } finally {
       setPaying(false);
     }
   };
@@ -162,29 +188,34 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({
         <p className="text-jb-accent-green font-bold text-xl">R$ {amount.toFixed(2)}</p>
       </div>
 
-      {loading ? (
+      {/* Always render the mount point */}
+      <div
+        ref={cardRef}
+        className="min-h-[150px]"
+        style={{ display: loading && !error ? 'none' : 'block' }}
+      />
+
+      {loading && !error && (
         <div className="flex items-center justify-center py-8">
           <div className="w-8 h-8 border-2 border-jb-accent-purple border-t-transparent rounded-full animate-spin" />
           <p className="text-jb-text-secondary ml-3 text-sm">Loading payment form...</p>
         </div>
-      ) : (
-        <>
-          <div ref={cardRef} className="min-h-[120px]" />
+      )}
 
-          {error && (
-            <p className="text-jb-highlight-pink text-sm text-center">{error}</p>
-          )}
+      {error && (
+        <p className="text-jb-highlight-pink text-sm text-center">{error}</p>
+      )}
 
-          <Button
-            variant="primary"
-            fullWidth
-            onClick={handlePay}
-            loading={paying}
-            disabled={paying}
-          >
-            {paying ? 'Processing...' : `Pay R$ ${amount.toFixed(2)}`}
-          </Button>
-        </>
+      {ready && (
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={handlePay}
+          loading={paying}
+          disabled={paying}
+        >
+          {paying ? 'Processing...' : `Pay R$ ${amount.toFixed(2)}`}
+        </Button>
       )}
 
       <Button variant="ghost" fullWidth onClick={onCancel}>
