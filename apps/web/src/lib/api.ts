@@ -25,24 +25,26 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      try {
-        const refreshToken = localStorage.getItem('jb_refresh_token');
-        if (!refreshToken) throw new Error('No refresh token');
+      const refreshToken = localStorage.getItem('jb_refresh_token');
+      // Only attempt refresh if user was logged in (has tokens)
+      if (refreshToken) {
+        try {
+          const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
 
-        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
+          const { accessToken, refreshToken: newRefresh } = data.data.tokens;
+          localStorage.setItem('jb_access_token', accessToken);
+          localStorage.setItem('jb_refresh_token', newRefresh);
 
-        const { accessToken, refreshToken: newRefresh } = data.data.tokens;
-        localStorage.setItem('jb_access_token', accessToken);
-        localStorage.setItem('jb_refresh_token', newRefresh);
-
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return api(originalRequest);
-      } catch {
-        // Refresh failed — clear tokens
-        localStorage.removeItem('jb_access_token');
-        localStorage.removeItem('jb_refresh_token');
-        window.location.href = '/';
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return api(originalRequest);
+        } catch {
+          // Refresh failed — clear tokens and redirect
+          localStorage.removeItem('jb_access_token');
+          localStorage.removeItem('jb_refresh_token');
+          window.location.href = '/';
+        }
       }
+      // No tokens = not logged in — don't redirect, just reject
     }
 
     return Promise.reject(error);
