@@ -40,14 +40,8 @@ export const CustomerLayout: React.FC = () => {
   const { machineId, listenToUpdates, stopListening } = useQueueStore();
   const { fetchWallet } = useWalletStore();
 
-  // Allow browse and queue without login, redirect others to landing
-  useEffect(() => {
-    const publicPaths = ['/browse', '/queue'];
-    const isPublicPath = publicPaths.some(p => location.pathname.startsWith(p));
-    if (!isAuthenticated && !isPublicPath) {
-      navigate('/', { replace: true });
-    }
-  }, [isAuthenticated, navigate, location.pathname]);
+  // All customer pages are visible without login
+  // Auth is only required when performing actions (payment, profile update, etc.)
 
   useEffect(() => {
     if (isAuthenticated && user) {
