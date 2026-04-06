@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SearchBar, SongCard, Button, Modal, Skeleton, Input } from '@jukebox/ui';
 import { useSongStore } from '../stores/songStore';
@@ -38,7 +38,8 @@ export const BrowsePage: React.FC = () => {
   const { songs, genres, isLoading, searchQuery, selectedGenre, fetchSongs, fetchGenres, setSearchQuery, setSelectedGenre } = useSongStore();
   const { machineId, setMachineId } = useQueueStore();
   const { balance, fetchWallet, generatePixForSong, pollPixStatus, simulatePixPayment, spendFromWallet, clearPix, pixPayment, pixStatus, isSandbox, checkProvider } = useWalletStore();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
 
   const [selectedSong, setSelectedSong] = useState<typeof songs[0] | null>(null);
   const [venueCode, setVenueCode] = useState('');
@@ -266,6 +267,10 @@ export const BrowsePage: React.FC = () => {
   };
 
   const handlePayment = (isPriority: boolean) => {
+    if (!isAuthenticated) {
+      navigate('/?redirect=/browse');
+      return;
+    }
     if (!machineId) {
       setQueueError('No machine connected. Please enter the venue code above.');
       return;

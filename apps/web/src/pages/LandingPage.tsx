@@ -24,25 +24,27 @@ export const LandingPage: React.FC = () => {
     }
   }, [searchParams]);
 
-  // If already authenticated, redirect by role
+  // If already authenticated, redirect by role or to redirect param
   React.useEffect(() => {
     if (isAuthenticated && user) {
+      const redirect = searchParams.get('redirect');
+      if (redirect) { navigate(redirect, { replace: true }); return; }
       if (user.role === 'ADMIN') navigate('/admin', { replace: true });
       else if (user.role === 'BAR_OWNER') navigate('/owner', { replace: true });
       else if (user.role === 'EMPLOYEE') navigate('/employee', { replace: true });
       else if (user.role === 'AFFILIATE') navigate('/affiliate', { replace: true });
       else navigate('/browse', { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, searchParams]);
 
   const handleLogin = async () => {
-    if (!venueCode.trim()) { setError('Enter the venue code from the QR code at the bar'); return; }
     if (!email.trim()) { setError('Enter your email'); return; }
     if (!password.trim()) { setError('Enter your password'); return; }
     setError('');
     try {
-      await login(email, password, venueCode.trim());
-      navigate('/browse');
+      await login(email, password, venueCode.trim() || undefined);
+      const redirect = searchParams.get('redirect');
+      navigate(redirect || '/browse');
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || 'Login failed');
     }
@@ -104,15 +106,8 @@ export const LandingPage: React.FC = () => {
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">Welcome to JukeBox</h2>
               <p className="text-jb-text-secondary text-sm text-center mb-4">
-                Scan the QR code at the bar or enter the venue code
+                Sign in to play music at any JukeBox
               </p>
-
-              <Input
-                label="Venue Code"
-                placeholder="e.g. BAR-CARLOS"
-                value={venueCode}
-                onChange={(e) => setVenueCode(e.target.value)}
-              />
 
               <div className="flex items-center gap-3 my-1">
                 <div className="flex-1 h-px bg-white/10" />
@@ -143,6 +138,16 @@ export const LandingPage: React.FC = () => {
 
               <Button variant="ghost" fullWidth onClick={() => { setMode('register'); setError(''); }}>
                 New here? Create an account
+              </Button>
+
+              <div className="flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-white/10" />
+                <span className="text-jb-text-secondary text-xs">or</span>
+                <div className="flex-1 h-px bg-white/10" />
+              </div>
+
+              <Button variant="ghost" fullWidth onClick={() => navigate('/browse')}>
+                Browse songs without login
               </Button>
             </div>
           )}

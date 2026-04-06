@@ -40,11 +40,14 @@ export const CustomerLayout: React.FC = () => {
   const { machineId, listenToUpdates, stopListening } = useQueueStore();
   const { fetchWallet } = useWalletStore();
 
+  // Allow browse and queue without login, redirect others to landing
   useEffect(() => {
-    if (!isAuthenticated) {
+    const publicPaths = ['/browse', '/queue'];
+    const isPublicPath = publicPaths.some(p => location.pathname.startsWith(p));
+    if (!isAuthenticated && !isPublicPath) {
       navigate('/', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, location.pathname]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
