@@ -70,11 +70,12 @@ export function App() {
     <ErrorBoundary>
     <Routes>
       {/* Public */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LandingPage />} />
       <Route path="/staff-login" element={<StaffLoginPage />} />
 
-      {/* Customer (authenticated) */}
+      {/* Customer — browse is the homepage */}
       <Route element={<CustomerLayout />}>
+        <Route path="/" element={<BrowsePage />} />
         <Route path="/browse" element={<BrowsePage />} />
         <Route path="/queue" element={<QueuePage />} />
         <Route path="/special" element={<SpecialEventsPage />} />

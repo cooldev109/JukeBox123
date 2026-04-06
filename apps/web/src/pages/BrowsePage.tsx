@@ -268,7 +268,7 @@ export const BrowsePage: React.FC = () => {
 
   const handlePayment = (isPriority: boolean) => {
     if (!isAuthenticated) {
-      navigate('/?redirect=/browse');
+      navigate('/login?redirect=/browse');
       return;
     }
     if (!machineId) {
@@ -404,8 +404,28 @@ export const BrowsePage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-jb-bg-primary/95 backdrop-blur-xl border-b border-white/5 px-4 pt-4 pb-3">
+      <div className="sticky top-0 z-30 bg-jb-bg-primary/95 backdrop-blur-xl border-b border-white/5 px-4 pt-2 pb-3">
         <div className="max-w-6xl mx-auto">
+          {/* Top bar with logo and login */}
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-bold text-jb-accent-green neon-text-green">JukeBox</h1>
+            {!isAuthenticated ? (
+              <button
+                onClick={() => navigate('/login?redirect=/browse')}
+                className="px-4 py-1.5 rounded-full text-sm font-medium bg-jb-accent-green text-jb-bg-primary hover:opacity-90 transition-all"
+              >
+                Login / Register
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-jb-text-secondary text-xs">{user?.name}</span>
+                <div className="w-7 h-7 rounded-full bg-jb-accent-purple/30 flex items-center justify-center text-jb-accent-purple text-xs font-bold">
+                  {user?.name?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+              </div>
+            )}
+          </div>
+
           <SearchBar
             value={searchQuery}
             onSearch={handleSearch}

@@ -33,7 +33,7 @@ export const LandingPage: React.FC = () => {
       else if (user.role === 'BAR_OWNER') navigate('/owner', { replace: true });
       else if (user.role === 'EMPLOYEE') navigate('/employee', { replace: true });
       else if (user.role === 'AFFILIATE') navigate('/affiliate', { replace: true });
-      else navigate('/browse', { replace: true });
+      else navigate('/', { replace: true });
     }
   }, [isAuthenticated, user, navigate, searchParams]);
 
