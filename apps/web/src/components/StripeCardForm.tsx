@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@jukebox/ui';
+import { api } from '../lib/api';
 
 interface StripeCardFormProps {
   clientSecret: string;
   amount: number;
+  transactionId?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -13,6 +15,7 @@ const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '_
 export const StripeCardForm: React.FC<StripeCardFormProps> = ({
   clientSecret,
   amount,
+  transactionId,
   onSuccess,
   onCancel,
 }) => {
@@ -149,6 +152,14 @@ export const StripeCardForm: React.FC<StripeCardFormProps> = ({
       }
 
       if (paymentIntent?.status === 'succeeded') {
+        // Confirm with backend so it completes the transaction
+        if (transactionId) {
+          try {
+            await api.post('/payments/card/confirm', { transactionId });
+          } catch {
+            // Webhook will handle it as fallback
+          }
+        }
         setSuccess(true);
         setTimeout(() => onSuccess(), 1500);
       } else if (paymentIntent?.status === 'requires_action') {

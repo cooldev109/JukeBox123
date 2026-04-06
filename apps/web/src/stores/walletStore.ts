@@ -30,6 +30,7 @@ interface WalletState {
   pixStatus: 'idle' | 'pending' | 'completed' | 'failed' | 'expired';
   // Card state
   cardClientSecret: string | null;
+  cardTransactionId: string | null;
   // Sandbox mode
   isSandbox: boolean;
 
@@ -53,6 +54,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   pixPayment: null,
   pixStatus: 'idle',
   cardClientSecret: null,
+  cardTransactionId: null,
   isSandbox: false,
 
   fetchWallet: async () => {
@@ -156,7 +158,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         amount,
         paymentMethod: 'CREDIT_CARD',
       });
-      set({ cardClientSecret: data.data.clientSecret || null });
+      set({ cardClientSecret: data.data.clientSecret || null, cardTransactionId: data.data.transactionId || null });
     } finally {
       set({ isLoading: false });
     }
@@ -172,5 +174,5 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   clearPix: () => set({ pixPayment: null, pixStatus: 'idle' }),
-  clearCard: () => set({ cardClientSecret: null }),
+  clearCard: () => set({ cardClientSecret: null, cardTransactionId: null }),
 }));

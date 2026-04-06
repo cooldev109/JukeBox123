@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { createPaymentIntent, createCustomer, attachPaymentMethod, listPaymentMethods, constructWebhookEvent } from '../lib/stripe.js';
+import { createPaymentIntent, retrievePaymentIntent, createCustomer, attachPaymentMethod, listPaymentMethods, constructWebhookEvent } from '../lib/stripe.js';
 import { getPixGateway, simulatePixPayment, getPixProviderName } from '../lib/pix.js';
 import { createSplit } from '../services/revenueSplit.js';
 import { getIO } from '../socket.js';
@@ -53,6 +53,7 @@ const cardPaymentSchema = z.object({
   amount: z.number().positive('Amount must be positive'),
   type: z.enum(ALL_TRANSACTION_TYPES),
   machineId: z.string().uuid().optional(),
+  songId: z.string().uuid().optional(),
   stripePaymentMethodId: z.string().optional(),
   idempotencyKey: z.string().min(1).optional(),
   metadata: z.record(z.unknown()).optional(),
@@ -635,7 +636,7 @@ paymentRouter.post('/card', requireAuth, async (req: Request, res: Response, nex
         status: 'PENDING',
         stripePaymentId: paymentIntent.id,
         idempotencyKey,
-        metadata: (data.metadata || {}) as Prisma.InputJsonValue,
+        metadata: { ...(data.metadata || {}), songId: data.songId || null } as Prisma.InputJsonValue,
       },
     });
 
@@ -717,6 +718,69 @@ paymentRouter.get('/card/methods', requireAuth, async (req: Request, res: Respon
           expMonth: m.card?.exp_month,
           expYear: m.card?.exp_year,
         })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// POST /payments/card/confirm — Frontend confirms card payment succeeded
+// ============================================
+paymentRouter.post('/card/confirm', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { transactionId } = z.object({ transactionId: z.string().uuid() }).parse(req.body);
+    const userId = req.user!.userId;
+
+    const transaction = await prisma.transaction.findFirst({
+      where: { id: transactionId, userId, status: 'PENDING', paymentMethod: { in: ['CREDIT_CARD', 'DEBIT_CARD'] } },
+    });
+
+    if (!transaction || !transaction.stripePaymentId) {
+      throw new AppError('Transaction not found or already processed', 404);
+    }
+
+    // Verify with Stripe that payment actually succeeded
+    const paymentIntent = await retrievePaymentIntent(transaction.stripePaymentId);
+
+    if (paymentIntent.status !== 'succeeded') {
+      throw new AppError(`Payment not completed. Status: ${paymentIntent.status}`, 400);
+    }
+
+    // Complete the transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id: transaction.id },
+        data: { status: 'COMPLETED' },
+      });
+
+      if (transaction.type === 'CREDIT_PURCHASE') {
+        await tx.wallet.upsert({
+          where: { userId: transaction.userId },
+          update: { balance: { increment: transaction.amount }, lastTopUp: new Date() },
+          create: { userId: transaction.userId, balance: transaction.amount, lastTopUp: new Date() },
+        });
+      }
+
+      if ((transaction.type === 'SONG_PAYMENT' || transaction.type === 'SKIP_QUEUE') && transaction.machineId) {
+        const songId = (transaction.metadata as any)?.songId;
+        if (songId) {
+          await addSongToQueueAfterPayment(tx, transaction.machineId, songId, transaction.userId, transaction.type === 'SKIP_QUEUE');
+        }
+      }
+
+      await createAffiliateCommission(tx, transaction.id, transaction.machineId, transaction.amount);
+    });
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId } });
+
+    res.json({
+      success: true,
+      data: {
+        transactionId: transaction.id,
+        status: 'COMPLETED',
+        walletBalance: wallet?.balance ?? 0,
       },
     });
   } catch (error) {

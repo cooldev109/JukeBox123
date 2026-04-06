@@ -8,7 +8,7 @@ const TOPUP_OPTIONS = [5, 10, 20, 50];
 
 export const WalletPage: React.FC = () => {
   const {
-    balance, transactions, isLoading, pixPayment, pixStatus, cardClientSecret, isSandbox,
+    balance, transactions, isLoading, pixPayment, pixStatus, cardClientSecret, cardTransactionId, isSandbox,
     fetchWallet, fetchTransactions, generatePixTopUp, pollPixStatus, simulatePixPayment,
     topUpWithCard, checkProvider, clearPix, clearCard,
   } = useWalletStore();
@@ -291,6 +291,7 @@ export const WalletPage: React.FC = () => {
                   <StripeCardForm
                     clientSecret={cardClientSecret}
                     amount={cardAmount}
+                    transactionId={cardTransactionId || undefined}
                     onSuccess={() => {
                       clearCard();
                       fetchWallet();

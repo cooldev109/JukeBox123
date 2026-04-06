@@ -55,6 +55,7 @@ export const BrowsePage: React.FC = () => {
   const [selectedPayMethod, setSelectedPayMethod] = useState<'wallet' | 'pix' | 'card'>('wallet');
   const [cardClientSecret, setCardClientSecret] = useState<string | null>(null);
   const [cardPayAmount, setCardPayAmount] = useState(0);
+  const [cardTransactionId, setCardTransactionId] = useState<string | null>(null);
   const [pendingPriority, setPendingPriority] = useState(false);
 
   // Discover (external search) state
@@ -255,6 +256,7 @@ export const BrowsePage: React.FC = () => {
         songId: selectedSong.id,
       });
       setCardClientSecret(data.data.clientSecret);
+      setCardTransactionId(data.data.transactionId);
       setPaymentStep('card-pending' as any);
     } catch (err: any) {
       setQueueError(err.response?.data?.error || 'Card payment failed');
@@ -737,6 +739,7 @@ export const BrowsePage: React.FC = () => {
                 <StripeCardForm
                   clientSecret={cardClientSecret}
                   amount={cardPayAmount}
+                  transactionId={cardTransactionId || undefined}
                   onSuccess={() => {
                     setCardClientSecret(null);
                     setPaymentStep('completed');
