@@ -4,6 +4,7 @@ import { Button, Modal } from '@jukebox/ui';
 import { useEventsStore } from '../stores/eventsStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
+import { MediaCapture } from '../components/MediaCapture';
 
 const formatPrice = (reais: number): string => `R$ ${reais.toFixed(2)}`;
 
@@ -19,7 +20,7 @@ const REACTION_EMOJIS: Record<string, string> = {
 type ModalType = 'silence' | 'textMessage' | 'voiceMessage' | 'photo' | 'reaction' | 'birthday' | 'skipQueue' | null;
 
 export const SpecialEventsPage: React.FC = () => {
-  const { config, fetchConfig, isLoading, error, purchaseSilence, purchaseTextMessage, purchaseReaction, purchaseBirthday, purchaseSkipQueue } = useEventsStore();
+  const { config, fetchConfig, isLoading, error, purchaseSilence, purchaseTextMessage, purchaseVoiceMessage, purchasePhoto, purchaseReaction, purchaseBirthday, purchaseSkipQueue } = useEventsStore();
   const { machineId, queue } = useQueueStore();
   const { balance, fetchWallet } = useWalletStore();
 
@@ -418,30 +419,39 @@ export const SpecialEventsPage: React.FC = () => {
       {/* VOICE MESSAGE MODAL (placeholder) */}
       {/* ============================================ */}
       <Modal isOpen={activeModal === 'voiceMessage'} onClose={() => setActiveModal(null)} title="Voice Message">
-        <div className="space-y-4">
-          <p className="text-jb-text-secondary text-sm">
-            Record a voice message to play on the TV speakers. Requires bar owner approval.
-          </p>
-          <div className="text-center py-8">
-            <p className="text-jb-text-secondary">Voice recording coming soon!</p>
-            <p className="text-xs text-jb-text-secondary mt-2">Requires microphone access via browser</p>
-          </div>
-        </div>
+        <p className="text-jb-text-secondary text-sm mb-4">
+          Record a voice message to play on the TV speakers. Requires bar owner approval.
+        </p>
+        <MediaCapture
+          type="audio"
+          maxDuration={config?.voiceMessage.options[0]?.duration === 5 ? 5 : 15}
+          onCapture={(url, duration) => {
+            handlePurchase(
+              () => purchaseVoiceMessage(machineId!, url, duration || 5),
+              'Voice message sent! Waiting for bar owner approval.'
+            );
+          }}
+          onCancel={() => setActiveModal(null)}
+        />
       </Modal>
 
       {/* ============================================ */}
       {/* PHOTO MODAL (placeholder) */}
       {/* ============================================ */}
       <Modal isOpen={activeModal === 'photo'} onClose={() => setActiveModal(null)} title="Photo on TV">
-        <div className="space-y-4">
-          <p className="text-jb-text-secondary text-sm">
-            Display your photo on the TV screen. Requires bar owner approval.
-          </p>
-          <div className="text-center py-8">
-            <p className="text-jb-text-secondary">Photo capture coming soon!</p>
-            <p className="text-xs text-jb-text-secondary mt-2">Requires camera access via browser</p>
-          </div>
-        </div>
+        <p className="text-jb-text-secondary text-sm mb-4">
+          Take a photo to display on the TV screen. Requires bar owner approval.
+        </p>
+        <MediaCapture
+          type="photo"
+          onCapture={(url) => {
+            handlePurchase(
+              () => purchasePhoto(machineId!, url),
+              'Photo sent! Waiting for bar owner approval.'
+            );
+          }}
+          onCancel={() => setActiveModal(null)}
+        />
       </Modal>
     </div>
   );
