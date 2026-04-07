@@ -192,6 +192,45 @@ songRouter.post('/request', requireAuth, async (req: Request, res: Response, nex
 });
 
 // ============================================
+// GET /songs/requests — list song requests (admin sees all, customer sees own)
+// ============================================
+songRouter.get('/requests', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const where: any = {};
+    if (req.user!.role === 'CUSTOMER') {
+      where.userId = req.user!.userId;
+    }
+
+    const requests = await prisma.songRequest.findMany({
+      where,
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    res.json({ success: true, data: { requests } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// PUT /songs/requests/:id/handled — admin marks request as handled
+// ============================================
+songRouter.put('/requests/:id/handled', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const request = await prisma.songRequest.update({
+      where: { id },
+      data: { isHandled: true },
+    });
+    res.json({ success: true, data: { request } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // GET /songs — list songs with filters, pagination, and search
 // ============================================
 songRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {

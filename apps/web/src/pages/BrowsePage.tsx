@@ -66,6 +66,12 @@ export const BrowsePage: React.FC = () => {
   const [addingSong, setAddingSong] = useState<string | null>(null);
   const [showBot, setShowBot] = useState(false);
   const [showVenueConnect, setShowVenueConnect] = useState(false);
+  const [showSongRequest, setShowSongRequest] = useState(false);
+  const [requestTitle, setRequestTitle] = useState('');
+  const [requestArtist, setRequestArtist] = useState('');
+  const [requestNotes, setRequestNotes] = useState('');
+  const [requestSending, setRequestSending] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
@@ -362,6 +368,34 @@ export const BrowsePage: React.FC = () => {
     }
   };
 
+  const handleSongRequest = async () => {
+    if (!requestTitle.trim()) return;
+    if (!isAuthenticated) {
+      navigate('/login?redirect=/browse');
+      return;
+    }
+    setRequestSending(true);
+    try {
+      await api.post('/songs/request', {
+        title: requestTitle.trim(),
+        artist: requestArtist.trim() || 'Unknown',
+        notes: requestNotes.trim() || undefined,
+      });
+      setRequestSuccess(true);
+      setRequestTitle('');
+      setRequestArtist('');
+      setRequestNotes('');
+      setTimeout(() => {
+        setRequestSuccess(false);
+        setShowSongRequest(false);
+      }, 2000);
+    } catch {
+      setQueueError('Failed to send request');
+    } finally {
+      setRequestSending(false);
+    }
+  };
+
   const handleConnectVenue = async () => {
     if (!venueCode.trim()) { setVenueError('Enter the venue code'); return; }
     setConnectingVenue(true);
@@ -552,16 +586,93 @@ export const BrowsePage: React.FC = () => {
         </div>
       )}
 
-      {/* Song Finder Bot - Floating Button */}
-      <button
-        onClick={() => setShowBot(true)}
-        className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-gradient-to-r from-jb-accent-purple to-jb-highlight-pink rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
-        title="Find a song"
+      {/* Floating Buttons */}
+      <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-3">
+        {/* Request a Song */}
+        <button
+          onClick={() => setShowSongRequest(true)}
+          className="w-14 h-14 bg-gradient-to-r from-jb-accent-green to-teal-500 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+          title="Request a song"
+        >
+          <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </button>
+        {/* Song Finder Bot */}
+        <button
+          onClick={() => setShowBot(true)}
+          className="w-14 h-14 bg-gradient-to-r from-jb-accent-purple to-jb-highlight-pink rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+          title="Find a song"
+        >
+          <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Song Request Modal */}
+      <Modal
+        isOpen={showSongRequest}
+        onClose={() => { setShowSongRequest(false); setRequestSuccess(false); }}
+        title="Request a Song"
       >
-        <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-        </svg>
-      </button>
+        {requestSuccess ? (
+          <div className="text-center space-y-4 py-4">
+            <div className="w-16 h-16 mx-auto bg-jb-accent-green/20 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-jb-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-jb-accent-green font-bold">Request Sent!</p>
+            <p className="text-jb-text-secondary text-sm">We'll add this song to the catalog soon.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-jb-text-secondary text-sm">
+              Can't find a song? Tell us and we'll add it to the catalog!
+            </p>
+            <div>
+              <label className="text-jb-text-secondary text-xs mb-1 block">Song Title *</label>
+              <input
+                type="text"
+                value={requestTitle}
+                onChange={(e) => setRequestTitle(e.target.value)}
+                placeholder="e.g. Evidencias"
+                className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+              />
+            </div>
+            <div>
+              <label className="text-jb-text-secondary text-xs mb-1 block">Artist</label>
+              <input
+                type="text"
+                value={requestArtist}
+                onChange={(e) => setRequestArtist(e.target.value)}
+                placeholder="e.g. Chitaozinho & Xororo"
+                className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+              />
+            </div>
+            <div>
+              <label className="text-jb-text-secondary text-xs mb-1 block">Notes (optional)</label>
+              <textarea
+                value={requestNotes}
+                onChange={(e) => setRequestNotes(e.target.value)}
+                placeholder="Any additional info..."
+                rows={2}
+                className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green resize-none"
+              />
+            </div>
+            <Button
+              variant="primary"
+              fullWidth
+              loading={requestSending}
+              disabled={!requestTitle.trim()}
+              onClick={handleSongRequest}
+            >
+              Send Request
+            </Button>
+          </div>
+        )}
+      </Modal>
 
       {/* Song Finder Bot - Chat Modal */}
       <AnimatePresence>
