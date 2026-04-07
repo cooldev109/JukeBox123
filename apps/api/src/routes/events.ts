@@ -881,15 +881,16 @@ eventRouter.post(
         throw new AppError('File and type are required', 400);
       }
 
-      if (!['audio', 'image'].includes(type)) {
-        throw new AppError('Type must be audio or image', 400);
+      if (!['audio', 'image', 'video'].includes(type)) {
+        throw new AppError('Type must be audio, image, or video', 400);
       }
 
       // Validate base64 size (rough estimate)
       const sizeBytes = Buffer.from(file, 'base64').length;
-      const maxSize = type === 'audio' ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+      const maxSizes: Record<string, number> = { audio: 5 * 1024 * 1024, image: 10 * 1024 * 1024, video: 20 * 1024 * 1024 };
+      const maxSize = maxSizes[type] || 10 * 1024 * 1024;
       if (sizeBytes > maxSize) {
-        throw new AppError(`File too large. Max ${type === 'audio' ? '5MB' : '10MB'}`, 400);
+        throw new AppError(`File too large. Max ${maxSize / (1024 * 1024)}MB`, 400);
       }
 
       // Create uploads directory
@@ -898,7 +899,8 @@ eventRouter.post(
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
 
-      const ext = type === 'audio' ? '.webm' : '.jpg';
+      const extMap: Record<string, string> = { audio: '.webm', image: '.jpg', video: '.mp4' };
+      const ext = extMap[type] || '.bin';
       const fileName = `${crypto.randomUUID()}${ext}`;
       const filePath = path.join(uploadsDir, fileName);
 

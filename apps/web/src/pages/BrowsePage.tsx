@@ -65,6 +65,7 @@ export const BrowsePage: React.FC = () => {
   const [discoverQuery, setDiscoverQuery] = useState('');
   const [addingSong, setAddingSong] = useState<string | null>(null);
   const [showBot, setShowBot] = useState(false);
+  const [showVenueConnect, setShowVenueConnect] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
@@ -272,7 +273,7 @@ export const BrowsePage: React.FC = () => {
       return;
     }
     if (!machineId) {
-      setQueueError('No machine connected. Please enter the venue code above.');
+      setShowVenueConnect(true);
       return;
     }
     if (selectedPayMethod === 'wallet') {
@@ -381,27 +382,7 @@ export const BrowsePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-jb-bg-primary pb-24">
-      {/* Venue connection banner */}
-      {!machineId && (
-        <div className="bg-jb-highlight-pink/10 border-b border-jb-highlight-pink/30 px-4 py-3">
-          <div className="max-w-6xl mx-auto">
-            <p className="text-jb-text-primary text-sm font-medium mb-2">
-              Enter the venue code to connect to a machine
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="e.g. BAR-CARLOS"
-                value={venueCode}
-                onChange={(e) => setVenueCode(e.target.value)}
-              />
-              <Button variant="primary" loading={connectingVenue} onClick={handleConnectVenue}>
-                Connect
-              </Button>
-            </div>
-            {venueError && <p className="text-jb-highlight-pink text-xs mt-1">{venueError}</p>}
-          </div>
-        </div>
-      )}
+      {/* Venue connection banner — only shown when trying to pay without connection */}
 
       {/* Header */}
       <div className="sticky top-0 z-30 bg-jb-bg-primary/95 backdrop-blur-xl border-b border-white/5 px-4 pt-2 pb-3">

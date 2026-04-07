@@ -166,7 +166,7 @@ async function searchArchiveOrg(query: string, genre?: string, limit = 20): Prom
     const searchUrl = `${ARCHIVE_ORG_SEARCH_URL}?${searchParams.toString()}`;
     const searchResponse = await fetch(searchUrl, {
       headers: { 'User-Agent': 'JukeBox-CatalogBot/1.0' },
-      signal: AbortSignal.timeout(15000),
+      signal: globalThis.AbortSignal.timeout(15000),
     });
 
     if (!searchResponse.ok) {
@@ -184,7 +184,7 @@ async function searchArchiveOrg(query: string, genre?: string, limit = 20): Prom
       try {
         const metaResponse = await fetch(`${ARCHIVE_ORG_METADATA_URL}/${doc.identifier}`, {
           headers: { 'User-Agent': 'JukeBox-CatalogBot/1.0' },
-          signal: AbortSignal.timeout(10000),
+          signal: globalThis.AbortSignal.timeout(10000),
         });
 
         if (!metaResponse.ok) return null;
@@ -276,7 +276,7 @@ async function searchFreeMusicArchive(query: string, genre?: string, limit = 20)
 
     const response = await fetch(`${FMA_API_URL}?${params.toString()}`, {
       headers: { 'User-Agent': 'JukeBox-CatalogBot/1.0' },
-      signal: AbortSignal.timeout(15000),
+      signal: globalThis.AbortSignal.timeout(15000),
     });
 
     if (!response.ok) {
