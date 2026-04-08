@@ -612,6 +612,42 @@ export const BrowsePage: React.FC = () => {
         </button>
       </div>
 
+      {/* Venue Connect Modal */}
+      <Modal
+        isOpen={showVenueConnect}
+        onClose={() => setShowVenueConnect(false)}
+        title="Connect to a Bar"
+      >
+        <div className="space-y-4">
+          <p className="text-jb-text-secondary text-sm">
+            Enter the bar's venue code to play music. You can find it on the QR code at the bar.
+          </p>
+          <div>
+            <label className="text-jb-text-secondary text-xs mb-1 block">Venue Code or Bar Name</label>
+            <input
+              type="text"
+              value={venueCode}
+              onChange={(e) => setVenueCode(e.target.value)}
+              placeholder="e.g. BAR-CARLOS"
+              className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+            />
+          </div>
+          {venueError && <p className="text-jb-highlight-pink text-sm">{venueError}</p>}
+          <Button
+            variant="primary"
+            fullWidth
+            loading={connectingVenue}
+            disabled={!venueCode.trim()}
+            onClick={async () => {
+              await handleConnectVenue();
+              if (machineId) setShowVenueConnect(false);
+            }}
+          >
+            Connect
+          </Button>
+        </div>
+      </Modal>
+
       {/* Song Request Modal */}
       <Modal
         isOpen={showSongRequest}
