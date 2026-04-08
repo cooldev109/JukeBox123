@@ -423,7 +423,7 @@ export const BrowsePage: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           {/* Top bar with logo and login */}
           <div className="flex items-center justify-between mb-2">
-            <img src="/logo.png" alt="Smart JukeBox" className="h-10" />
+            <img src="/logo.png" alt="Smart JukeBox" className="h-14 sm:h-16" />
             {!isAuthenticated ? (
               <button
                 onClick={() => navigate('/login?redirect=/browse')}
