@@ -90,7 +90,7 @@ export const LandingPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10"
         >
-          <img src="/logo.png" alt="Smart JukeBox" className="h-36 mx-auto mb-2" />
+          <img src="/logo.png" alt="Smart JukeBox" className="h-48 mx-auto mb-2" />
           <p className="text-jb-text-secondary text-lg">Your music, your bar, your vibe</p>
         </motion.div>
 
