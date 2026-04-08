@@ -80,12 +80,14 @@ export const BrowsePage: React.FC = () => {
   useEffect(() => {
     fetchGenres();
     fetchSongs();
-    fetchWallet();
-    checkProvider();
+    if (isAuthenticated) {
+      fetchWallet();
+      checkProvider();
+    }
 
     // Auto-connect if venue code is in URL (e.g., /browse?venue=BAR-CARLOS)
     const venueFromUrl = searchParams.get('venue');
-    if (venueFromUrl && !machineId) {
+    if (venueFromUrl && !machineId && isAuthenticated) {
       setVenueCode(venueFromUrl);
       autoConnectVenue(venueFromUrl);
     }
