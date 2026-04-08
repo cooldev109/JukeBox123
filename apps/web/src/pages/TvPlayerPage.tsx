@@ -250,9 +250,7 @@ export const TvPlayerPage: React.FC = () => {
         onClick={() => document.documentElement.requestFullscreen?.()}
       >
         <div className="w-full max-w-md p-8">
-          <h1 className="text-5xl font-bold text-jb-accent-green neon-text-green text-center mb-2">
-            JukeBox
-          </h1>
+          <img src="/logo.png" alt="Smart JukeBox" className="h-20 mx-auto mb-2" />
           <p className="text-jb-text-secondary text-center mb-8">
             TV Player Setup
           </p>
@@ -377,13 +375,13 @@ export const TvPlayerPage: React.FC = () => {
               animate={{ opacity: 1 }}
               className="text-center"
             >
-              <motion.h1
-                className="text-8xl font-bold text-jb-accent-green neon-text-green mb-4"
+              <motion.img
+                src="/logo.png"
+                alt="Smart JukeBox"
+                className="h-32 mx-auto mb-4"
                 animate={{ opacity: [1, 0.8, 1] }}
                 transition={{ duration: 3, repeat: Infinity }}
-              >
-                JukeBox
-              </motion.h1>
+              />
               <p className="text-3xl text-jb-text-secondary mb-8">
                 {venueName || 'Your music, your bar'}
               </p>
@@ -587,9 +585,7 @@ export const TvPlayerPage: React.FC = () => {
       {/* Top Bar: Status + Venue */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-3 bg-gradient-to-b from-jb-bg-primary/80 to-transparent">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-jb-accent-green neon-text-green">
-            JukeBox
-          </h1>
+          <img src="/logo.png" alt="Smart JukeBox" className="h-8" />
           {venueName && (
             <span className="text-jb-text-secondary text-sm">
               | {venueName}

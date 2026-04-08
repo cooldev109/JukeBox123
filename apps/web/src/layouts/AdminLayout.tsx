@@ -42,10 +42,8 @@ export const AdminLayout: React.FC = () => {
       {/* Sidebar */}
       <aside className="w-64 bg-jb-bg-primary border-r border-white/10 flex-shrink-0 hidden desktop:flex flex-col">
         <div className="px-6 py-5 border-b border-white/10">
-          <h1 className="text-2xl font-bold text-jb-accent-green neon-text-green">
-            JukeBox
-          </h1>
-          <p className="text-jb-text-secondary text-xs mt-1">Admin Dashboard</p>
+          <img src="/logo.png" alt="Smart JukeBox" className="h-10 mb-1" />
+          <p className="text-jb-text-secondary text-xs">Admin Dashboard</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {menuItems.map((item) => (
@@ -84,7 +82,7 @@ export const AdminLayout: React.FC = () => {
       {/* Mobile header */}
       <div className="desktop:hidden fixed top-0 left-0 right-0 z-40 bg-jb-bg-primary/95 backdrop-blur-xl border-b border-white/10 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-jb-accent-green">JukeBox Admin</h1>
+          <img src="/logo.png" alt="Smart JukeBox" className="h-8" />
           <button
             onClick={() => { logout(); navigate('/'); }}
             className="text-jb-highlight-pink text-xs hover:underline"

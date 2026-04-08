@@ -59,7 +59,7 @@ export function App() {
     return (
       <div className="min-h-screen bg-jb-bg-primary flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-jb-accent-green neon-text-green mb-4">JukeBox</h1>
+          <img src="/logo.png" alt="Smart JukeBox" className="h-16 mx-auto mb-4" />
           <div className="w-8 h-8 border-2 border-jb-accent-green border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>

@@ -24,7 +24,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       return (
         <div className="min-h-screen bg-jb-bg-primary flex items-center justify-center px-4">
           <div className="text-center max-w-md">
-            <h1 className="text-4xl font-bold text-jb-accent-green neon-text-green mb-4">JukeBox</h1>
+            <img src="/logo.png" alt="Smart JukeBox" className="h-16 mx-auto mb-4" />
             <p className="text-jb-text-primary text-lg mb-2">Something went wrong</p>
             <p className="text-jb-text-secondary text-sm mb-6">{this.state.error}</p>
             <button
