@@ -423,11 +423,11 @@ export const BrowsePage: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           {/* Top bar with logo and login */}
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-bold text-jb-accent-green neon-text-green">JukeBox</h1>
+            <img src="/logo.png" alt="Smart JukeBox" className="h-10" />
             {!isAuthenticated ? (
               <button
                 onClick={() => navigate('/login?redirect=/browse')}
-                className="px-4 py-1.5 rounded-full text-sm font-medium bg-jb-accent-green text-jb-bg-primary hover:opacity-90 transition-all"
+                className="px-3 py-1.5 rounded-full text-xs font-medium bg-jb-accent-green text-jb-bg-primary hover:opacity-90 transition-all whitespace-nowrap"
               >
                 Login / Register
               </button>
@@ -485,10 +485,10 @@ export const BrowsePage: React.FC = () => {
             ))}
           </div>
         ) : songs.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="text-center py-16 px-6">
             <div className="text-5xl mb-4">🎵</div>
-            <h3 className="text-xl font-bold text-jb-text-primary mb-2">No songs found</h3>
-            <p className="text-jb-text-secondary">Try a different search or genre</p>
+            <h3 className="text-lg font-bold text-jb-text-primary mb-2">No songs found</h3>
+            <p className="text-jb-text-secondary text-sm">Try a different search or genre</p>
             {searchQuery && (
               <button
                 onClick={() => handleDiscover(searchQuery)}
@@ -587,7 +587,7 @@ export const BrowsePage: React.FC = () => {
       )}
 
       {/* Floating Buttons */}
-      <div className="fixed bottom-20 right-4 z-40 flex flex-col gap-3">
+      <div className="fixed bottom-24 right-4 z-40 flex flex-col gap-3">
         {/* Request a Song */}
         <button
           onClick={() => setShowSongRequest(true)}

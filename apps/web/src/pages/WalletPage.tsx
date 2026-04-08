@@ -166,7 +166,7 @@ export const WalletPage: React.FC = () => {
                   <div className="flex gap-2 mb-4">
                     <button
                       onClick={() => setPaymentMethod('pix')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      className={`flex-1 min-h-[44px] py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                         paymentMethod === 'pix'
                           ? 'bg-jb-accent-green text-jb-bg-primary'
                           : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
@@ -176,7 +176,7 @@ export const WalletPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setPaymentMethod('card')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      className={`flex-1 min-h-[44px] py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                         paymentMethod === 'card'
                           ? 'bg-jb-accent-purple text-white'
                           : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
@@ -196,7 +196,7 @@ export const WalletPage: React.FC = () => {
                         <img
                           src={pixPayment.qrCodeBase64}
                           alt="Pix QR Code"
-                          className="w-56 h-56"
+                          className="w-full max-w-[200px] h-auto"
                         />
                       </div>
                     </div>
@@ -303,7 +303,7 @@ export const WalletPage: React.FC = () => {
                 ) : (
                   /* Amount Selection */
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 sm:gap-3">
                       {TOPUP_OPTIONS.map((amount) => (
                         <Button
                           key={amount}
@@ -371,14 +371,14 @@ export const WalletPage: React.FC = () => {
                     <p className="text-jb-text-primary text-sm font-medium truncate">
                       {transactionLabel(tx)}
                     </p>
-                    <p className="text-jb-text-secondary text-xs">
+                    <p className="text-jb-text-secondary text-xs truncate">
                       {tx.paymentMethod === 'PIX' ? 'Pix' : tx.paymentMethod === 'WALLET' ? 'Wallet' : 'Card'}
                       {' · '}
                       {new Date(tx.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className={`font-bold text-sm ${isCredit(tx.type) ? 'text-jb-accent-green' : 'text-jb-highlight-pink'}`}>
+                  <div className="text-right shrink-0">
+                    <span className={`font-bold text-sm whitespace-nowrap ${isCredit(tx.type) ? 'text-jb-accent-green' : 'text-jb-highlight-pink'}`}>
                       {isCredit(tx.type) ? '+' : '-'}R$ {Math.abs(tx.amount).toFixed(2)}
                     </span>
                     <p className={`text-xs ${

@@ -90,9 +90,7 @@ export const LandingPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-10"
         >
-          <h1 className="text-6xl font-bold text-jb-accent-green neon-text-green mb-2">
-            JukeBox
-          </h1>
+          <img src="/logo.png" alt="Smart JukeBox" className="h-20 mx-auto mb-2" />
           <p className="text-jb-text-secondary text-lg">Your music, your bar, your vibe</p>
         </motion.div>
 
@@ -100,7 +98,7 @@ export const LandingPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="glass rounded-2xl p-6"
+          className="glass rounded-2xl p-6 mx-2"
         >
           {mode === 'login' && (
             <div className="space-y-4">
@@ -146,8 +144,8 @@ export const LandingPage: React.FC = () => {
                 <div className="flex-1 h-px bg-white/10" />
               </div>
 
-              <Button variant="ghost" fullWidth onClick={() => navigate('/browse')}>
-                Browse songs without login
+              <Button variant="secondary" fullWidth onClick={() => navigate('/browse')}>
+                🎵 Browse songs without login
               </Button>
             </div>
           )}
