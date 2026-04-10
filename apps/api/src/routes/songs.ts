@@ -4,6 +4,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
+import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
 
 export const songRouter = Router();
 
@@ -226,6 +229,111 @@ songRouter.put('/requests/:id/handled', requireAuth, requireRole('ADMIN'), async
     });
     res.json({ success: true, data: { request } });
   } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// POST /songs/upload — Admin uploads an MP3 file
+// ============================================
+songRouter.post('/upload', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { file, title, artist, album, genre } = req.body;
+
+    if (!file) {
+      throw new AppError('File (base64-encoded MP3) is required', 400);
+    }
+
+    // Decode base64 and validate size (max 50MB)
+    const fileBuffer = Buffer.from(file, 'base64');
+    const maxSize = 50 * 1024 * 1024;
+    if (fileBuffer.length > maxSize) {
+      throw new AppError('File too large. Max 50MB', 400);
+    }
+
+    // Validate it looks like an MP3 (check for ID3 header or MPEG sync word)
+    const isMP3 =
+      (fileBuffer[0] === 0x49 && fileBuffer[1] === 0x44 && fileBuffer[2] === 0x33) || // ID3
+      (fileBuffer[0] === 0xFF && (fileBuffer[1] & 0xE0) === 0xE0); // MPEG sync
+    if (!isMP3) {
+      throw new AppError('Invalid file format. Only MP3 files are accepted', 400);
+    }
+
+    // Create uploads/music directory
+    const musicDir = path.join(process.cwd(), 'uploads', 'music');
+    if (!fs.existsSync(musicDir)) {
+      fs.mkdirSync(musicDir, { recursive: true });
+    }
+
+    // Save file with UUID filename
+    const fileName = `${crypto.randomUUID()}.mp3`;
+    const filePath = path.join(musicDir, fileName);
+    fs.writeFileSync(filePath, fileBuffer);
+
+    // Try to extract metadata from the MP3 file
+    let extractedTitle = title || null;
+    let extractedArtist = artist || null;
+    let extractedAlbum = album || null;
+    let extractedGenre = genre || null;
+    let extractedDuration = 0;
+
+    try {
+      // @ts-expect-error — music-metadata is an optional dependency
+      const mm = await import('music-metadata');
+      const metadata = await mm.parseBuffer(fileBuffer, { mimeType: 'audio/mpeg' });
+      if (!extractedTitle && metadata.common.title) {
+        extractedTitle = metadata.common.title;
+      }
+      if (!extractedArtist && metadata.common.artist) {
+        extractedArtist = metadata.common.artist;
+      }
+      if (!extractedAlbum && metadata.common.album) {
+        extractedAlbum = metadata.common.album;
+      }
+      if (!extractedGenre && metadata.common.genre && metadata.common.genre.length > 0) {
+        extractedGenre = metadata.common.genre[0];
+      }
+      if (metadata.format.duration) {
+        extractedDuration = Math.round(metadata.format.duration);
+      }
+    } catch {
+      // music-metadata not available or parsing failed — use provided fields
+    }
+
+    // Fallbacks if metadata extraction did not fill the fields
+    if (!extractedTitle) {
+      extractedTitle = 'Untitled';
+    }
+    if (!extractedArtist) {
+      extractedArtist = 'Unknown Artist';
+    }
+    if (!extractedGenre) {
+      extractedGenre = 'Other';
+    }
+    if (!extractedDuration || extractedDuration <= 0) {
+      extractedDuration = 0;
+    }
+
+    // Create Song record in database
+    const song = await prisma.song.create({
+      data: {
+        title: extractedTitle,
+        artist: extractedArtist,
+        album: extractedAlbum || null,
+        genre: extractedGenre,
+        duration: extractedDuration,
+        fileUrl: `/uploads/music/${fileName}`,
+        fileSize: fileBuffer.length,
+        format: 'MP3',
+        metadata: {} as Prisma.JsonObject,
+      },
+    });
+
+    res.status(201).json({ success: true, data: { song } });
+  } catch (error) {
+    if (error instanceof AppError) {
+      return next(error);
+    }
     next(error);
   }
 });

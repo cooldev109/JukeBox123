@@ -1,4 +1,7 @@
 import { prisma } from '../lib/prisma.js';
+import { exec } from 'child_process';
+import { existsSync, mkdirSync, statSync } from 'fs';
+import { resolve } from 'path';
 
 /**
  * Music Catalog Bot
@@ -6,6 +9,7 @@ import { prisma } from '../lib/prisma.js';
  * Sources:
  * - Archive.org (Internet Archive) — public domain and CC-licensed audio
  * - Free Music Archive (FMA) — CC-licensed music
+ * - YouTube (via YouTube Data API v3 or HTML scraping fallback)
  */
 
 const MAX_DURATION_SECONDS = 300; // 5 minutes max per client requirement
@@ -335,6 +339,354 @@ async function searchFreeMusicArchive(query: string, genre?: string, limit = 20)
 }
 
 // ============================================
+// Source: YouTube (via Data API v3 or HTML scraping)
+// ============================================
+
+const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
+const YOUTUBE_SEARCH_URL = 'https://www.youtube.com/results';
+const UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'music');
+
+/**
+ * Clean up a YouTube video title by removing common suffixes
+ */
+function cleanYouTubeTitle(title: string): string {
+  return title
+    .replace(/\s*[\(\[]\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics|Lyric Video|Visualizer|MV|M\/V|HD|HQ|4K|Live)\s*[\)\]]/gi, '')
+    .replace(/\s*-\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics|Lyric Video|Visualizer|MV|M\/V)\s*$/gi, '')
+    .replace(/\s*\|\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics)\s*$/gi, '')
+    .replace(/\s*ft\.?\s+.*$/i, (match) => match) // keep featuring info
+    .trim();
+}
+
+/**
+ * Search YouTube using the Data API v3
+ */
+async function searchYouTubeAPI(query: string, apiKey: string, limit = 10): Promise<SongMetadata[]> {
+  const params = new URLSearchParams({
+    q: query,
+    type: 'video',
+    videoCategoryId: '10', // Music category
+    maxResults: String(limit),
+    part: 'snippet',
+    key: apiKey,
+  });
+
+  const response = await fetch(`${YOUTUBE_API_URL}?${params.toString()}`, {
+    headers: { 'User-Agent': 'JukeBox-CatalogBot/1.0' },
+    signal: globalThis.AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    console.error(`YouTube API search failed with status ${response.status}`);
+    return [];
+  }
+
+  const data = await response.json() as {
+    items?: Array<{
+      id?: { videoId?: string };
+      snippet?: {
+        title?: string;
+        channelTitle?: string;
+        thumbnails?: {
+          high?: { url?: string };
+          medium?: { url?: string };
+          default?: { url?: string };
+        };
+      };
+    }>;
+  };
+
+  const songs: SongMetadata[] = [];
+  for (const item of data.items || []) {
+    const videoId = item.id?.videoId;
+    if (!videoId) continue;
+
+    const snippet = item.snippet || {};
+    const thumbnail =
+      snippet.thumbnails?.high?.url ||
+      snippet.thumbnails?.medium?.url ||
+      snippet.thumbnails?.default?.url ||
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+    songs.push({
+      title: cleanYouTubeTitle(snippet.title || 'Unknown Title'),
+      artist: snippet.channelTitle || 'Unknown Artist',
+      genre: 'Other',
+      duration: 0,
+      fileUrl: '', // filled after download
+      coverArtUrl: thumbnail,
+      format: 'MP3',
+      fileSize: 0,
+    });
+  }
+
+  return songs;
+}
+
+/**
+ * Fallback: scrape YouTube's public search page for video IDs when no API key is available.
+ * This is a best-effort approach and may break if YouTube changes their HTML.
+ */
+async function searchYouTubeScrape(query: string, limit = 10): Promise<SongMetadata[]> {
+  const params = new URLSearchParams({ search_query: query });
+  const response = await fetch(`${YOUTUBE_SEARCH_URL}?${params.toString()}`, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    },
+    signal: globalThis.AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    console.error(`YouTube scrape search failed with status ${response.status}`);
+    return [];
+  }
+
+  const html = await response.text();
+
+  // Extract video IDs from the HTML — YouTube embeds JSON data in a script tag
+  const songs: SongMetadata[] = [];
+  const seen = new Set<string>();
+
+  // Pattern 1: extract from ytInitialData JSON
+  const jsonMatch = html.match(/var ytInitialData\s*=\s*(\{.*?\});\s*<\/script>/s);
+  if (jsonMatch) {
+    try {
+      const ytData = JSON.parse(jsonMatch[1]);
+      const contents =
+        ytData?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
+
+      if (Array.isArray(contents)) {
+        for (const section of contents) {
+          const items = section?.itemSectionRenderer?.contents;
+          if (!Array.isArray(items)) continue;
+
+          for (const item of items) {
+            const renderer = item?.videoRenderer;
+            if (!renderer?.videoId) continue;
+
+            const videoId = renderer.videoId as string;
+            if (seen.has(videoId)) continue;
+            seen.add(videoId);
+
+            const title = renderer.title?.runs?.[0]?.text || 'Unknown Title';
+            const channel = renderer.ownerText?.runs?.[0]?.text || 'Unknown Artist';
+
+            songs.push({
+              title: cleanYouTubeTitle(title),
+              artist: channel,
+              genre: 'Other',
+              duration: 0,
+              fileUrl: '',
+              coverArtUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+              format: 'MP3',
+              fileSize: 0,
+            });
+
+            if (songs.length >= limit) break;
+          }
+          if (songs.length >= limit) break;
+        }
+      }
+    } catch {
+      // JSON parse failed, fall through to regex
+    }
+  }
+
+  // Pattern 2: regex fallback for video IDs in HTML
+  if (songs.length === 0) {
+    const videoIdRegex = /\/watch\?v=([a-zA-Z0-9_-]{11})/g;
+    let match: RegExpExecArray | null;
+    while ((match = videoIdRegex.exec(html)) !== null && songs.length < limit) {
+      const videoId = match[1];
+      if (seen.has(videoId)) continue;
+      seen.add(videoId);
+
+      songs.push({
+        title: `YouTube Video ${videoId}`,
+        artist: 'Unknown Artist',
+        genre: 'Other',
+        duration: 0,
+        fileUrl: '',
+        coverArtUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        format: 'MP3',
+        fileSize: 0,
+      });
+    }
+  }
+
+  return songs;
+}
+
+/**
+ * Search YouTube for music videos.
+ * Uses YouTube Data API v3 if YOUTUBE_API_KEY is set, otherwise falls back to HTML scraping.
+ */
+export async function searchYouTube(query: string, limit = 10): Promise<SearchResult> {
+  const songs: SongMetadata[] = [];
+
+  try {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    let results: SongMetadata[];
+
+    if (apiKey) {
+      results = await searchYouTubeAPI(query, apiKey, limit);
+    } else {
+      results = await searchYouTubeScrape(query, limit);
+    }
+
+    songs.push(...results.slice(0, limit));
+  } catch (err: any) {
+    console.error(`YouTube search error: ${err.message}`);
+  }
+
+  return {
+    songs,
+    source: 'youtube',
+    total: songs.length,
+  };
+}
+
+/**
+ * Execute a shell command with a timeout, returning a promise
+ */
+function execPromise(command: string, timeoutMs = 60000): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = exec(command, { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve({ stdout: stdout?.toString() || '', stderr: stderr?.toString() || '' });
+    });
+    // Ensure process is killed on timeout
+    proc.on('error', reject);
+  });
+}
+
+/**
+ * Download audio from a YouTube video using yt-dlp.
+ * Requires yt-dlp to be installed on the system (apt install yt-dlp or pip install yt-dlp).
+ *
+ * @param videoId - YouTube video ID
+ * @returns Local file path to the downloaded MP3
+ * @throws Error if download fails, times out, or video exceeds max duration
+ */
+export async function downloadFromYouTube(videoId: string): Promise<string> {
+  // Ensure uploads directory exists
+  if (!existsSync(UPLOADS_DIR)) {
+    mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+
+  const outputPath = resolve(UPLOADS_DIR, `${videoId}.mp3`);
+
+  // If already downloaded, return the existing file
+  if (existsSync(outputPath)) {
+    return `/uploads/music/${videoId}.mp3`;
+  }
+
+  // First, check video duration to enforce max duration filter
+  try {
+    const { stdout: durationStr } = await execPromise(
+      `yt-dlp --print duration "https://www.youtube.com/watch?v=${videoId}"`,
+      15000,
+    );
+    const duration = parseFloat(durationStr.trim());
+    if (!isNaN(duration) && duration > MAX_DURATION_SECONDS) {
+      throw new Error(
+        `Video duration (${Math.round(duration)}s) exceeds maximum allowed (${MAX_DURATION_SECONDS}s)`,
+      );
+    }
+  } catch (err: any) {
+    // If the error is our duration check, re-throw it
+    if (err.message?.includes('exceeds maximum')) throw err;
+    // Otherwise, log and continue — duration check is best-effort
+    console.warn(`Could not check video duration: ${err.message}`);
+  }
+
+  // Download audio as MP3
+  const command = [
+    'yt-dlp',
+    '-x',
+    '--audio-format mp3',
+    '--audio-quality 128K',
+    '--no-playlist',
+    '--no-overwrites',
+    `-o "${outputPath}"`,
+    `"https://www.youtube.com/watch?v=${videoId}"`,
+  ].join(' ');
+
+  await execPromise(command, 60000);
+
+  // Verify file was created
+  if (!existsSync(outputPath)) {
+    throw new Error(`Download completed but file not found at ${outputPath}`);
+  }
+
+  return `/uploads/music/${videoId}.mp3`;
+}
+
+/**
+ * Download audio from YouTube and import it into the database as a Song.
+ *
+ * @param videoId - YouTube video ID
+ * @param metadata - Song metadata (title, artist, genre)
+ * @returns The created Song record
+ */
+export async function downloadAndImportFromYouTube(
+  videoId: string,
+  metadata: { title: string; artist: string; genre?: string },
+) {
+  // Check if song already exists by title + artist
+  const existing = await prisma.song.findFirst({
+    where: { title: metadata.title, artist: metadata.artist },
+  });
+  if (existing) {
+    return existing;
+  }
+
+  // Download the audio
+  const fileUrl = await downloadFromYouTube(videoId);
+
+  // Get file size
+  const absolutePath = resolve(process.cwd(), fileUrl.replace(/^\//, ''));
+  let fileSize = 0;
+  try {
+    const stats = statSync(absolutePath);
+    fileSize = stats.size;
+  } catch {
+    // file size unknown
+  }
+
+  // Estimate duration from file size (128kbps = 16KB/s)
+  const duration = fileSize > 0 ? Math.round(fileSize / 16000) : 0;
+
+  const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+  // Create the song record
+  const song = await prisma.song.create({
+    data: {
+      title: metadata.title,
+      artist: metadata.artist,
+      genre: metadata.genre || 'Other',
+      duration,
+      fileUrl,
+      originalFileUrl: youtubeUrl,
+      coverArtUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      format: 'MP3',
+      fileSize,
+      isActive: true,
+      metadata: {
+        source: 'youtube',
+        videoId,
+        importedAt: new Date().toISOString(),
+      },
+    },
+  });
+
+  return song;
+}
+
+// ============================================
 // Multi-source search
 // ============================================
 
@@ -396,6 +748,29 @@ export async function searchCatalog(
 
   // Primary source: Archive.org
   const results = await searchArchiveOrg(query, genre, limit);
+
+  // Also search YouTube if enabled
+  const youtubeEnabled =
+    !!process.env.YOUTUBE_API_KEY || process.env.ENABLE_YOUTUBE_SEARCH === 'true';
+  if (youtubeEnabled && query) {
+    try {
+      const ytResults = await searchYouTube(query, limit);
+      const seen = new Set(
+        results.songs.map((s) => `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`),
+      );
+      for (const song of ytResults.songs) {
+        const key = `${song.title.toLowerCase()}|${song.artist.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.songs.push(song);
+        }
+      }
+      results.source = results.source ? `${results.source}+youtube` : 'youtube';
+      results.total = results.songs.length;
+    } catch (err: any) {
+      console.error(`YouTube search in catalog failed: ${err.message}`);
+    }
+  }
 
   return results;
 }

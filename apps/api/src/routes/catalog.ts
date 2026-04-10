@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { searchCatalog, importSongs, autoPopulateCatalog, handleSongRequest } from '../services/catalogBot.js';
+import { searchCatalog, importSongs, autoPopulateCatalog, handleSongRequest, searchYouTube, downloadAndImportFromYouTube } from '../services/catalogBot.js';
+import { searchSpotify } from '../services/spotifySearch.js';
 
 export const catalogRouter = Router();
 
@@ -222,6 +223,33 @@ catalogRouter.post(
       res.status(201).json({
         success: true,
         data: { song, alreadyExists: false },
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+      next(err);
+    }
+  },
+);
+
+// ============================================
+// GET /catalog/spotify/search — search Spotify for metadata
+// ============================================
+const spotifySearchSchema = z.object({
+  query: z.string().min(1, 'Search query is required'),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+catalogRouter.get(
+  '/spotify/search',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const params = spotifySearchSchema.parse(req.query);
+      const results = await searchSpotify(params.query, params.limit);
+
+      res.json({
+        success: true,
+        data: { results, total: results.length },
       });
     } catch (err) {
       if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
@@ -528,3 +556,68 @@ catalogRouter.post('/sync', requireAuth, async (req: Request, res: Response, nex
     });
   } catch (err) { next(err); }
 });
+
+// ============================================
+// YOUTUBE SEARCH & IMPORT
+// ============================================
+
+const youtubeSearchSchema = z.object({
+  query: z.string().min(1, 'Search query is required'),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+const youtubeImportSchema = z.object({
+  videoId: z.string().min(1, 'YouTube video ID is required').regex(/^[a-zA-Z0-9_-]{11}$/, 'Invalid YouTube video ID'),
+  title: z.string().min(1, 'Title is required'),
+  artist: z.string().min(1, 'Artist is required'),
+  genre: z.string().optional(),
+});
+
+// --- POST /catalog/youtube/search — search YouTube for songs ---
+catalogRouter.post(
+  '/youtube/search',
+  requireAuth,
+  requireRole('ADMIN'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const params = youtubeSearchSchema.parse(req.body);
+      const results = await searchYouTube(params.query, params.limit);
+
+      res.json({
+        success: true,
+        data: results,
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+      next(err);
+    }
+  },
+);
+
+// --- POST /catalog/youtube/import — download and import a YouTube video as a song ---
+catalogRouter.post(
+  '/youtube/import',
+  requireAuth,
+  requireRole('ADMIN'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = youtubeImportSchema.parse(req.body);
+      const song = await downloadAndImportFromYouTube(data.videoId, {
+        title: data.title,
+        artist: data.artist,
+        genre: data.genre,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: { song },
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+      if (err.message?.includes('exceeds maximum')) {
+        return next(new AppError(err.message, 400));
+      }
+      next(err);
+    }
+  },
+);
