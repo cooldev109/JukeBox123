@@ -307,7 +307,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Defining Moment', artist: 'Donnie Sands', album: 'Defining Moment', genre: 'Acoustic',
-        duration: 235, fileUrl: 'https://archive.org/download/DonnieSands-DefiningMoment/12DonnieSands-DefiningMoment.mp3',
+        duration: 235, fileUrl: '/uploads/music/defining-moment.mp3', originalFileUrl: 'https://archive.org/download/DonnieSands-DefiningMoment/12DonnieSands-DefiningMoment.mp3',
         coverArtUrl: 'https://archive.org/services/img/DonnieSands-DefiningMoment', format: SongFormat.MP3, fileSize: 5500000, playCount: 150,
         albumId: albumDefiningMoment.id, trackNumber: 1,
       },
@@ -315,7 +315,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Hero', artist: 'Donnie Sands', album: 'Hero', genre: 'Pop',
-        duration: 231, fileUrl: 'https://archive.org/download/DonnieSands-Hero/09DonnieSands-Hero.mp3',
+        duration: 231, fileUrl: '/uploads/music/hero.mp3', originalFileUrl: 'https://archive.org/download/DonnieSands-Hero/09DonnieSands-Hero.mp3',
         coverArtUrl: 'https://archive.org/services/img/DonnieSands-Hero', format: SongFormat.MP3, fileSize: 4200000, playCount: 200,
         albumId: albumHero.id, trackNumber: 1,
       },
@@ -323,7 +323,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'The Perfect Storm', artist: 'Donnie Sands', album: 'The Perfect Storm', genre: 'Rock',
-        duration: 279, fileUrl: 'https://archive.org/download/DonnieSands-ThePerfectStormAcoustic/DonnieSands-ThePerfectStorm.mp3',
+        duration: 279, fileUrl: '/uploads/music/perfect-storm.mp3', originalFileUrl: 'https://archive.org/download/DonnieSands-ThePerfectStormAcoustic/DonnieSands-ThePerfectStorm.mp3',
         coverArtUrl: 'https://archive.org/services/img/DonnieSands-ThePerfectStormAcoustic', format: SongFormat.MP3, fileSize: 4800000, playCount: 95,
         albumId: albumPerfectStorm.id, trackNumber: 1,
       },
@@ -331,7 +331,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Bad Parenting', artist: 'Trench Party', album: 'Single', genre: 'Indie',
-        duration: 137, fileUrl: 'https://archive.org/download/BadParenting/TrenchParty-BadParenting.mp3',
+        duration: 137, fileUrl: '/uploads/music/bad-parenting.mp3', originalFileUrl: 'https://archive.org/download/BadParenting/TrenchParty-BadParenting.mp3',
         coverArtUrl: 'https://archive.org/services/img/BadParenting', format: SongFormat.MP3, fileSize: 4000000, playCount: 120,
         albumId: albumTrenchPartySingle.id, trackNumber: 1,
       },
@@ -339,7 +339,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Job 33 Remix', artist: 'elperfecto.com', album: 'Single', genre: 'Electronic',
-        duration: 177, fileUrl: 'https://archive.org/download/Job33Remix/Job33Remix.mp3',
+        duration: 177, fileUrl: '/uploads/music/job33-remix.mp3', originalFileUrl: 'https://archive.org/download/Job33Remix/Job33Remix.mp3',
         coverArtUrl: 'https://archive.org/services/img/Job33Remix', format: SongFormat.MP3, fileSize: 3800000, playCount: 80,
         albumId: albumElperfectoSingle.id, trackNumber: 1,
       },
@@ -347,7 +347,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Frecuencias', artist: 'Malaventura', album: 'Malaventura', genre: 'Electronic',
-        duration: 333, fileUrl: 'https://archive.org/download/malaventura01/01Frecuencias.mp3',
+        duration: 333, fileUrl: '/uploads/music/frecuencias.mp3', originalFileUrl: 'https://archive.org/download/malaventura01/01Frecuencias.mp3',
         coverArtUrl: 'https://archive.org/services/img/malaventura01', format: SongFormat.MP3, fileSize: 4100000, playCount: 110,
         albumId: albumMalaventura.id, trackNumber: 1,
       },
@@ -355,7 +355,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'La Cruz', artist: 'Malaventura', album: 'Malaventura', genre: 'Electronic',
-        duration: 245, fileUrl: 'https://archive.org/download/malaventura01/02LaCruz.mp3',
+        duration: 245, fileUrl: '/uploads/music/la-cruz.mp3', originalFileUrl: 'https://archive.org/download/malaventura01/02LaCruz.mp3',
         coverArtUrl: 'https://archive.org/services/img/malaventura01', format: SongFormat.MP3, fileSize: 4500000, playCount: 175,
         albumId: albumMalaventura.id, trackNumber: 2,
       },
@@ -363,7 +363,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Aldous', artist: 'Stig Sneddon', album: 'Stig 2010', genre: 'Rock',
-        duration: 171, fileUrl: 'https://archive.org/download/Stig_2010/Aldous.mp3',
+        duration: 171, fileUrl: '/uploads/music/aldous.mp3', originalFileUrl: 'https://archive.org/download/Stig_2010/Aldous.mp3',
         coverArtUrl: 'https://archive.org/services/img/Stig_2010', format: SongFormat.MP3, fileSize: 4500000, playCount: 250,
         albumId: albumStig2010.id, trackNumber: 1,
       },
@@ -371,7 +371,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Four More Years', artist: 'Stig Sneddon', album: 'Stig 2010', genre: 'Rock',
-        duration: 192, fileUrl: 'https://archive.org/download/Stig_2010/FourMoreYears.mp3',
+        duration: 192, fileUrl: '/uploads/music/four-more-years.mp3', originalFileUrl: 'https://archive.org/download/Stig_2010/FourMoreYears.mp3',
         coverArtUrl: 'https://archive.org/services/img/Stig_2010', format: SongFormat.MP3, fileSize: 6200000, playCount: 90,
         albumId: albumStig2010.id, trackNumber: 2,
       },
@@ -379,7 +379,7 @@ async function main() {
     prisma.song.create({
       data: {
         title: 'Blues Evermore', artist: 'Coleman Hawkins', album: 'Jazz Classics', genre: 'Jazz',
-        duration: 168, fileUrl: 'https://archive.org/download/ColemanHawkins_172/ColemanHawkins-01-BluesEvermore-June141938.mp3',
+        duration: 168, fileUrl: '/uploads/music/blues-evermore.mp3', originalFileUrl: 'https://archive.org/download/ColemanHawkins_172/ColemanHawkins-01-BluesEvermore-June141938.mp3',
         coverArtUrl: 'https://archive.org/services/img/ColemanHawkins_172', format: SongFormat.MP3, fileSize: 4000000, playCount: 300,
         albumId: albumJazzClassics.id, trackNumber: 1,
       },

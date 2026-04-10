@@ -198,8 +198,9 @@ model Song {
   album       String?
   genre       String
   duration    Int        // seconds
-  fileUrl     String
-  videoUrl    String?
+  fileUrl         String
+  originalFileUrl String?    // Original source URL (e.g., archive.org) as backup
+  videoUrl        String?
   coverArtUrl String?
   metadata    Json       @default("{}")
   fileSize    Int        @default(0) // bytes
