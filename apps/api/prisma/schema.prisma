@@ -30,6 +30,9 @@ model User {
   updatedAt    DateTime  @updatedAt
   isActive     Boolean   @default(true)
 
+  // Google OAuth
+  googleId     String?   @unique
+
   // Stage 2 fields
   regionAccess String?   // For EMPLOYEE: city/state/country they manage
   referralCode String?   @unique // For AFFILIATE: unique referral code

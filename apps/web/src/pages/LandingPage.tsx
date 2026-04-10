@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button, Input } from '@jukebox/ui';
 import { useAuthStore } from '../stores/authStore';
+import { GoogleLoginButton } from '../components/GoogleLoginButton';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -107,9 +108,17 @@ export const LandingPage: React.FC = () => {
                 Sign in to play music at any JukeBox
               </p>
 
-              <div className="flex items-center gap-3 my-1">
+              <GoogleLoginButton
+                onSuccess={() => {
+                  const redirect = searchParams.get('redirect');
+                  navigate(redirect || '/');
+                }}
+                onError={(err) => setError(err)}
+              />
+
+              <div className="flex items-center gap-3 my-3">
                 <div className="flex-1 h-px bg-white/10" />
-                <span className="text-jb-text-secondary text-xs">your account</span>
+                <span className="text-jb-text-secondary text-xs">or use email</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
 

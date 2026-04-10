@@ -510,6 +510,95 @@ authRouter.delete('/users/:id', requireAuth, requireRole('ADMIN'), async (req: R
 });
 
 // ============================================
+// POST /auth/google — Google OAuth login/register
+// ============================================
+authRouter.post('/google', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { credential } = z.object({ credential: z.string().min(1) }).parse(req.body);
+
+    // Verify Google ID token
+    const googleResponse = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`,
+    );
+
+    if (!googleResponse.ok) {
+      throw new AppError('Invalid Google token', 401);
+    }
+
+    const googleUser = await googleResponse.json() as {
+      sub: string;
+      email: string;
+      name: string;
+      picture: string;
+      email_verified: string;
+    };
+
+    if (googleUser.email_verified !== 'true') {
+      throw new AppError('Google email not verified', 401);
+    }
+
+    // Find existing user by googleId or email
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { googleId: googleUser.sub },
+          { email: googleUser.email },
+        ],
+      },
+    });
+
+    if (user) {
+      // Update googleId if not set (linking existing email account to Google)
+      if (!user.googleId) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { googleId: googleUser.sub, avatar: user.avatar || googleUser.picture },
+        });
+      }
+    } else {
+      // Create new user
+      user = await prisma.user.create({
+        data: {
+          email: googleUser.email,
+          name: googleUser.name,
+          googleId: googleUser.sub,
+          avatar: googleUser.picture,
+          role: 'CUSTOMER',
+          passwordHash: null,
+        },
+      });
+
+      // Create wallet for new user
+      await prisma.wallet.create({
+        data: { userId: user.id, balance: 0 },
+      });
+    }
+
+    const tokens = generateTokenPair({ userId: user.id, role: user.role });
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          avatar: user.avatar,
+          phone: user.phone,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+        tokens,
+      },
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) return next(new AppError('Google credential is required', 400));
+    next(error);
+  }
+});
+
+// ============================================
 // POST /auth/connect-venue — Connect to a venue's machine by code
 // ============================================
 authRouter.post('/connect-venue', requireAuth, async (req: Request, res: Response, next: NextFunction) => {

@@ -21,6 +21,7 @@ interface AuthState {
   loginWithOtp: (phone: string, otp: string) => Promise<void>;
   requestOtp: (phone: string) => Promise<string | null>;
   register: (data: { name: string; email?: string; phone?: string; password?: string; role?: string }) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<User>;
   qrRegister: (venueCode: string, name?: string, phone?: string) => Promise<{ venueName: string }>;
   fetchMe: () => Promise<void>;
   logout: () => void;
@@ -78,6 +79,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       localStorage.setItem('jb_access_token', tokens.accessToken);
       localStorage.setItem('jb_refresh_token', tokens.refreshToken);
       set({ user, isAuthenticated: true });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  loginWithGoogle: async (credential) => {
+    set({ isLoading: true });
+    try {
+      const { data } = await api.post('/auth/google', { credential });
+      const { user, tokens } = data.data;
+      localStorage.setItem('jb_access_token', tokens.accessToken);
+      localStorage.setItem('jb_refresh_token', tokens.refreshToken);
+      set({ user, isAuthenticated: true });
+      return user;
     } finally {
       set({ isLoading: false });
     }
