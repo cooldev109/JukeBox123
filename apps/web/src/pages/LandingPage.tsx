@@ -4,10 +4,13 @@ import { motion } from 'framer-motion';
 import { Button, Input } from '@jukebox/ui';
 import { useAuthStore } from '../stores/authStore';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
+import { LanguageToggle } from '../components/LanguageToggle';
+import { useI18n } from '../lib/i18n';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, login, register, isLoading } = useAuthStore();
+  const { t } = useI18n();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [venueCode, setVenueCode] = useState('');
   const [email, setEmail] = useState('');
@@ -84,6 +87,11 @@ export const LandingPage: React.FC = () => {
         transition={{ duration: 5, repeat: Infinity }}
       />
 
+      {/* Language toggle - top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageToggle />
+      </div>
+
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <motion.div
@@ -103,9 +111,9 @@ export const LandingPage: React.FC = () => {
         >
           {mode === 'login' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">Welcome to JukeBox</h2>
+              <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">{t('welcome')}</h2>
               <p className="text-jb-text-secondary text-sm text-center mb-4">
-                Sign in to play music at any JukeBox
+                {t('signin_subtitle')}
               </p>
 
               <GoogleLoginButton
@@ -118,19 +126,19 @@ export const LandingPage: React.FC = () => {
 
               <div className="flex items-center gap-3 my-3">
                 <div className="flex-1 h-px bg-white/10" />
-                <span className="text-jb-text-secondary text-xs">or use email</span>
+                <span className="text-jb-text-secondary text-xs">{t('or_use_email')}</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
 
               <Input
-                label="Email"
+                label={t('email')}
                 type="email"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <Input
-                label="Password"
+                label={t('password')}
                 type="password"
                 placeholder="Your password"
                 value={password}
@@ -140,21 +148,21 @@ export const LandingPage: React.FC = () => {
               {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
 
               <Button variant="primary" fullWidth loading={isLoading} onClick={handleLogin}>
-                Enter JukeBox
+                {t('enter_jukebox')}
               </Button>
 
               <Button variant="ghost" fullWidth onClick={() => { setMode('register'); setError(''); }}>
-                New here? Create an account
+                {t('new_here')}
               </Button>
 
               <div className="flex items-center gap-3 my-1">
                 <div className="flex-1 h-px bg-white/10" />
-                <span className="text-jb-text-secondary text-xs">or</span>
+                <span className="text-jb-text-secondary text-xs">{t('or')}</span>
                 <div className="flex-1 h-px bg-white/10" />
               </div>
 
               <Button variant="secondary" fullWidth onClick={() => navigate('/browse')}>
-                🎵 Browse songs without login
+                {t('browse_without_login')}
               </Button>
             </div>
           )}

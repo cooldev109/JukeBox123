@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SearchBar, SongCard, Button, Modal, Skeleton, Input } from '@jukebox/ui';
 import { useSongStore } from '../stores/songStore';
+import { LanguageToggle } from '../components/LanguageToggle';
+import { useI18n } from '../lib/i18n';
 import { SongDiscoverBot } from '../components/SongDiscoverBot';
 import { StripeCardForm } from '../components/StripeCardForm';
 import { useQueueStore } from '../stores/queueStore';
@@ -40,6 +42,7 @@ export const BrowsePage: React.FC = () => {
   const { balance, fetchWallet, generatePixForSong, pollPixStatus, simulatePixPayment, spendFromWallet, clearPix, pixPayment, pixStatus, isSandbox, checkProvider } = useWalletStore();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const [selectedSong, setSelectedSong] = useState<typeof songs[0] | null>(null);
   const [venueCode, setVenueCode] = useState('');
@@ -426,21 +429,24 @@ export const BrowsePage: React.FC = () => {
           {/* Top bar with logo and login */}
           <div className="flex items-center justify-between mb-2">
             <img src="/logo.png" alt="Smart JukeBox" className="h-24 sm:h-28" />
-            {!isAuthenticated ? (
-              <button
-                onClick={() => navigate('/login?redirect=/browse')}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-jb-accent-green text-jb-bg-primary hover:opacity-90 transition-all whitespace-nowrap"
-              >
-                Login / Register
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-jb-text-secondary text-xs">{user?.name}</span>
-                <div className="w-7 h-7 rounded-full bg-jb-accent-purple/30 flex items-center justify-center text-jb-accent-purple text-xs font-bold">
-                  {user?.name?.charAt(0)?.toUpperCase() || '?'}
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              {!isAuthenticated ? (
+                <button
+                  onClick={() => navigate('/login?redirect=/browse')}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-jb-accent-green text-jb-bg-primary hover:opacity-90 transition-all whitespace-nowrap"
+                >
+                  {t('login_register')}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-jb-text-secondary text-xs">{user?.name}</span>
+                  <div className="w-7 h-7 rounded-full bg-jb-accent-purple/30 flex items-center justify-center text-jb-accent-purple text-xs font-bold">
+                    {user?.name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <SearchBar
