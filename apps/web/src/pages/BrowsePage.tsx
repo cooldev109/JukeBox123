@@ -542,6 +542,66 @@ export const BrowsePage: React.FC = () => {
         )}
       </div>
 
+      {/* Special Products Section */}
+      <div className="max-w-6xl mx-auto px-4 mt-6">
+        <div className="border-t border-white/10 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-jb-text-primary">{t('special_features')}</h3>
+            <button
+              onClick={() => navigate('/special')}
+              className="text-jb-accent-purple text-xs hover:underline"
+            >
+              {t('browse')} &rarr;
+            </button>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { name: t('skip_queue'), icon: '\u26A1', price: 'R$ 5.00', color: 'from-yellow-500 to-orange-500', path: '/special' },
+              { name: t('silence'), icon: '\uD83D\uDD07', price: 'R$ 5.00', color: 'from-blue-500 to-indigo-600', path: '/special' },
+              { name: t('text_message'), icon: '\uD83D\uDCAC', price: 'R$ 2.00', color: 'from-green-500 to-teal-500', path: '/special' },
+              { name: t('voice_message'), icon: '\uD83C\uDF99\uFE0F', price: 'R$ 8.00', color: 'from-cyan-500 to-blue-500', path: '/special' },
+              { name: t('photo_on_tv'), icon: '\uD83D\uDCF8', price: 'R$ 5.00', color: 'from-amber-500 to-yellow-500', path: '/special' },
+              { name: t('reactions'), icon: '\uD83C\uDF89', price: 'R$ 1.00', color: 'from-pink-500 to-red-500', path: '/special' },
+              { name: t('birthday'), icon: '\uD83C\uDF82', price: 'R$ 25.00', color: 'from-purple-500 to-pink-500', path: '/special' },
+            ].map((item) => (
+              <button
+                key={item.name}
+                onClick={() => navigate(item.path)}
+                className="flex-shrink-0 w-28 rounded-xl p-3 text-center transition-all hover:scale-105 border border-white/5 hover:border-white/20"
+                style={{ background: 'linear-gradient(145deg, rgba(26,26,46,0.8), rgba(15,15,15,0.9))' }}
+              >
+                <div className={`w-10 h-10 mx-auto mb-2 rounded-full bg-gradient-to-r ${item.color} flex items-center justify-center text-lg`}>
+                  {item.icon}
+                </div>
+                <p className="text-jb-text-primary text-xs font-medium leading-tight">{item.name}</p>
+                <p className="text-jb-accent-green text-xs font-bold mt-1">{item.price}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Song Request Button */}
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <button
+            onClick={() => setShowSongRequest(true)}
+            className="w-full flex items-center justify-between bg-jb-bg-secondary/50 rounded-xl p-4 border border-white/5 hover:border-jb-accent-purple/30 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-jb-accent-purple/20 flex items-center justify-center">
+                <span className="text-lg">{'\uD83D\uDCE8'}</span>
+              </div>
+              <div className="text-left">
+                <p className="text-jb-text-primary text-sm font-medium">{t('request_song')}</p>
+                <p className="text-jb-text-secondary text-xs">{t('request_song_desc')}</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-jb-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       {/* Discover Section — search external sources */}
       {(discoverResults.length > 0 || discoverLoading) && (
         <div className="max-w-6xl mx-auto px-4 mt-6">
