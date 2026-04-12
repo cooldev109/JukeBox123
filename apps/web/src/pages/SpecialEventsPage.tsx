@@ -5,6 +5,7 @@ import { useEventsStore } from '../stores/eventsStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
 import { MediaCapture } from '../components/MediaCapture';
+import { useI18n } from '../lib/i18n';
 
 const formatPrice = (reais: number): string => `R$ ${reais.toFixed(2)}`;
 
@@ -20,6 +21,7 @@ const REACTION_EMOJIS: Record<string, string> = {
 type ModalType = 'silence' | 'textMessage' | 'voiceMessage' | 'photo' | 'reaction' | 'birthday' | 'skipQueue' | null;
 
 export const SpecialEventsPage: React.FC = () => {
+  const { t } = useI18n();
   const { config, fetchConfig, isLoading, error, purchaseSilence, purchaseTextMessage, purchaseVoiceMessage, purchasePhoto, purchaseReaction, purchaseBirthday, purchaseSkipQueue } = useEventsStore();
   const { machineId, queue } = useQueueStore();
   const { balance, fetchWallet } = useWalletStore();
@@ -79,7 +81,7 @@ export const SpecialEventsPage: React.FC = () => {
   if (!machineId) {
     return (
       <div className="p-6 text-center">
-        <p className="text-jb-text-secondary">No machine connected. Please scan a venue QR code first.</p>
+        <p className="text-jb-text-secondary">{t('no_machine')}</p>
       </div>
     );
   }
@@ -95,7 +97,7 @@ export const SpecialEventsPage: React.FC = () => {
   const events = [
     {
       id: 'skipQueue' as ModalType,
-      name: 'Skip Queue',
+      name: t('skip_queue'),
       icon: '\u26A1',
       price: config?.skipQueue.price ?? 5,
       enabled: (config?.skipQueue.enabled ?? false) && userQueueItems.length > 0,
@@ -104,7 +106,7 @@ export const SpecialEventsPage: React.FC = () => {
     },
     {
       id: 'silence' as ModalType,
-      name: 'Silence',
+      name: t('silence'),
       icon: '\uD83D\uDD07',
       price: config?.silence.options[0]?.price ?? 5,
       priceLabel: `from ${formatPrice(config?.silence.options[0]?.price ?? 5)}`,
@@ -113,7 +115,7 @@ export const SpecialEventsPage: React.FC = () => {
     },
     {
       id: 'textMessage' as ModalType,
-      name: 'Text Message',
+      name: t('text_message'),
       icon: '\uD83D\uDCAC',
       price: config?.textMessage.price ?? 2,
       enabled: config?.textMessage.enabled ?? false,
@@ -121,7 +123,7 @@ export const SpecialEventsPage: React.FC = () => {
     },
     {
       id: 'reaction' as ModalType,
-      name: 'Reactions',
+      name: t('reactions'),
       icon: '\uD83C\uDF89',
       price: config?.reaction.price ?? 1,
       enabled: config?.reaction.enabled ?? false,
@@ -129,7 +131,7 @@ export const SpecialEventsPage: React.FC = () => {
     },
     {
       id: 'birthday' as ModalType,
-      name: 'Birthday',
+      name: t('birthday'),
       icon: '\uD83C\uDF82',
       price: config?.birthday.price ?? 25,
       enabled: config?.birthday.enabled ?? false,
@@ -137,7 +139,7 @@ export const SpecialEventsPage: React.FC = () => {
     },
     {
       id: 'voiceMessage' as ModalType,
-      name: 'Voice Message',
+      name: t('voice_message'),
       icon: '\uD83C\uDF99\uFE0F',
       price: config?.voiceMessage.options[0]?.price ?? 8,
       priceLabel: `from ${formatPrice(config?.voiceMessage.options[0]?.price ?? 8)}`,
@@ -146,7 +148,7 @@ export const SpecialEventsPage: React.FC = () => {
     },
     {
       id: 'photo' as ModalType,
-      name: 'Photo on TV',
+      name: t('photo_on_tv'),
       icon: '\uD83D\uDCF8',
       price: config?.photo.price ?? 5,
       enabled: config?.photo.enabled ?? false,
@@ -158,9 +160,9 @@ export const SpecialEventsPage: React.FC = () => {
     <div className="p-4 pb-24">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-jb-text-primary">Special Features</h1>
+        <h1 className="text-2xl font-bold text-jb-text-primary">{t('special_features')}</h1>
         <p className="text-jb-text-secondary text-sm mt-1">
-          Wallet: <span className="text-jb-accent-green font-semibold">{formatPrice(balance)}</span>
+          {t('wallet')}: <span className="text-jb-accent-green font-semibold">{formatPrice(balance)}</span>
         </p>
       </div>
 

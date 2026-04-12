@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QueueItemComponent, MusicVisualizer } from '@jukebox/ui';
 import { useQueueStore } from '../stores/queueStore';
+import { useI18n } from '../lib/i18n';
 
 const formatDuration = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -10,6 +11,7 @@ const formatDuration = (seconds: number): string => {
 };
 
 export const QueuePage: React.FC = () => {
+  const { t } = useI18n();
   const { queue, nowPlaying, machineId, fetchQueue, fetchNowPlaying } = useQueueStore();
 
   useEffect(() => {
@@ -99,17 +101,18 @@ export const QueuePage: React.FC = () => {
       <div className="px-4 mt-4">
         <div className="max-w-lg mx-auto">
           <h3 className="text-lg font-bold text-jb-text-primary mb-3">
-            Up Next
+            {t('up_next')}
             {queue.length > 0 && (
               <span className="text-jb-text-secondary font-normal text-sm ml-2">
-                ({queue.length} {queue.length === 1 ? 'song' : 'songs'})
+                ({queue.length} {t('songs_in_queue')})
               </span>
             )}
           </h3>
 
           {queue.length === 0 ? (
             <div className="text-center py-8 text-jb-text-secondary">
-              <p>Queue is empty. Add some songs!</p>
+              <p className="font-bold mb-1">{t('queue_empty')}</p>
+              <p className="text-sm">{t('queue_empty_desc')}</p>
             </div>
           ) : (
             <AnimatePresence mode="popLayout">

@@ -4,11 +4,13 @@ import { motion } from 'framer-motion';
 import { Button, Card } from '@jukebox/ui';
 import { useAuthStore } from '../stores/authStore';
 import { useWalletStore } from '../stores/walletStore';
+import { useI18n } from '../lib/i18n';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { balance } = useWalletStore();
+  const { t } = useI18n();
 
   const handleLogout = () => {
     logout();
@@ -36,11 +38,11 @@ export const ProfilePage: React.FC = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <Card className="p-4 text-center">
-            <p className="text-jb-text-secondary text-xs mb-1">Balance</p>
+            <p className="text-jb-text-secondary text-xs mb-1">{t('balance')}</p>
             <p className="text-jb-accent-green font-bold text-lg">R$ {(balance / 100).toFixed(2)}</p>
           </Card>
           <Card className="p-4 text-center">
-            <p className="text-jb-text-secondary text-xs mb-1">Role</p>
+            <p className="text-jb-text-secondary text-xs mb-1">{t('role')}</p>
             <p className="text-jb-accent-purple font-bold text-lg capitalize">{user?.role?.toLowerCase() || 'Customer'}</p>
           </Card>
         </div>
@@ -53,8 +55,8 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="text-xl">💰</span>
             <div className="flex-1">
-              <p className="text-jb-text-primary font-medium">My Wallet</p>
-              <p className="text-jb-text-secondary text-xs">Top up credits, view transactions</p>
+              <p className="text-jb-text-primary font-medium">{t('my_wallet')}</p>
+              <p className="text-jb-text-secondary text-xs">{t('top_up_view')}</p>
             </div>
             <svg className="w-5 h-5 text-jb-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -67,8 +69,8 @@ export const ProfilePage: React.FC = () => {
           >
             <span className="text-xl">📋</span>
             <div className="flex-1">
-              <p className="text-jb-text-primary font-medium">Song History</p>
-              <p className="text-jb-text-secondary text-xs">Previously played songs</p>
+              <p className="text-jb-text-primary font-medium">{t('song_history')}</p>
+              <p className="text-jb-text-secondary text-xs">{t('previously_played')}</p>
             </div>
             <svg className="w-5 h-5 text-jb-text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -78,7 +80,7 @@ export const ProfilePage: React.FC = () => {
 
         {/* Logout */}
         <Button variant="danger" fullWidth onClick={handleLogout}>
-          Logout
+          {t('logout')}
         </Button>
       </div>
     </div>

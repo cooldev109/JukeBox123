@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
 import { connectSocket, joinMachine } from '../lib/socket';
+import { useI18n } from '../lib/i18n';
 
 // SVG icons as components
 const SearchIcon = () => (
@@ -37,6 +38,7 @@ export const CustomerLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated } = useAuthStore();
+  const { t } = useI18n();
   const { machineId, listenToUpdates, stopListening } = useQueueStore();
   const { fetchWallet } = useWalletStore();
 
@@ -73,11 +75,11 @@ export const CustomerLayout: React.FC = () => {
   };
 
   const navItems = [
-    { id: 'browse', label: 'Browse', icon: <SearchIcon />, onClick: () => navigate('/browse') },
-    { id: 'queue', label: 'Queue', icon: <QueueIcon />, onClick: () => navigate('/queue') },
-    { id: 'special', label: 'Special', icon: <SpecialIcon />, onClick: () => navigate('/special') },
-    { id: 'wallet', label: 'Wallet', icon: <WalletIcon />, onClick: () => navigate('/wallet') },
-    { id: 'profile', label: 'Profile', icon: <ProfileIcon />, onClick: () => navigate('/profile') },
+    { id: 'browse', label: t('browse'), icon: <SearchIcon />, onClick: () => navigate('/browse') },
+    { id: 'queue', label: t('queue'), icon: <QueueIcon />, onClick: () => navigate('/queue') },
+    { id: 'special', label: t('special'), icon: <SpecialIcon />, onClick: () => navigate('/special') },
+    { id: 'wallet', label: t('wallet'), icon: <WalletIcon />, onClick: () => navigate('/wallet') },
+    { id: 'profile', label: t('profile'), icon: <ProfileIcon />, onClick: () => navigate('/profile') },
   ];
 
   return (

@@ -3,10 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditBadge, Button, Input, Card } from '@jukebox/ui';
 import { useWalletStore } from '../stores/walletStore';
 import { StripeCardForm } from '../components/StripeCardForm';
+import { useI18n } from '../lib/i18n';
 
 const TOPUP_OPTIONS = [5, 10, 20, 50];
 
 export const WalletPage: React.FC = () => {
+  const { t } = useI18n();
   const {
     balance, transactions, isLoading, pixPayment, pixStatus, cardClientSecret, cardTransactionId, isSandbox,
     fetchWallet, fetchTransactions, generatePixTopUp, pollPixStatus, simulatePixPayment,
@@ -108,14 +110,14 @@ export const WalletPage: React.FC = () => {
 
   const transactionLabel = (tx: typeof transactions[0]) => {
     switch (tx.type) {
-      case 'CREDIT_PURCHASE': return 'Top-up';
-      case 'SONG_PAYMENT': return 'Song';
-      case 'SKIP_QUEUE': return 'VIP Song';
-      case 'SILENCE': return 'Silence';
-      case 'VOICE_MSG': return 'Voice Message';
-      case 'REACTION': return 'Reaction';
-      case 'PHOTO': return 'Photo';
-      case 'BIRTHDAY_PACK': return 'Birthday Pack';
+      case 'CREDIT_PURCHASE': return t('top_up');
+      case 'SONG_PAYMENT': return t('song');
+      case 'SKIP_QUEUE': return t('vip_song');
+      case 'SILENCE': return t('silence');
+      case 'VOICE_MSG': return t('voice_message');
+      case 'REACTION': return t('reaction');
+      case 'PHOTO': return t('photo');
+      case 'BIRTHDAY_PACK': return t('birthday_pack');
       default: return tx.type;
     }
   };
@@ -135,17 +137,17 @@ export const WalletPage: React.FC = () => {
       <div className="max-w-lg mx-auto">
         {/* Balance Card */}
         <Card glowColor="green" className="p-6 mb-6 text-center">
-          <p className="text-jb-text-secondary text-sm mb-2">Your Balance</p>
+          <p className="text-jb-text-secondary text-sm mb-2">{t('your_balance')}</p>
           <CreditBadge balance={balance} size="lg" />
           <p className="text-jb-text-secondary text-xs mt-3">
-            Credits work at any JukeBox in the network
+            {t('credits_network')}
           </p>
           <Button
             variant="primary"
             className="mt-4"
             onClick={() => { setShowTopUp(true); clearPix(); clearCard(); setPollError(''); }}
           >
-            Top Up Credits
+            {t('top_up_credits')}
           </Button>
         </Card>
 
@@ -159,7 +161,7 @@ export const WalletPage: React.FC = () => {
               className="mb-6"
             >
               <Card className="p-6">
-                <h3 className="text-lg font-bold text-jb-text-primary mb-4">Add Credits</h3>
+                <h3 className="text-lg font-bold text-jb-text-primary mb-4">{t('add_credits')}</h3>
 
                 {/* Payment Method Toggle */}
                 {!pixPayment && !cardClientSecret && (
@@ -172,7 +174,7 @@ export const WalletPage: React.FC = () => {
                           : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
                       }`}
                     >
-                      Pix
+                      {t('pix')}
                     </button>
                     <button
                       onClick={() => setPaymentMethod('card')}
@@ -182,7 +184,7 @@ export const WalletPage: React.FC = () => {
                           : 'bg-white/5 text-jb-text-secondary hover:bg-white/10'
                       }`}
                     >
-                      Card
+                      {t('card')}
                     </button>
                   </div>
                 )}
@@ -209,14 +211,14 @@ export const WalletPage: React.FC = () => {
                       <div className="flex items-center justify-center gap-2 mt-1">
                         <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
                         <p className="text-yellow-400 text-sm font-medium">
-                          Waiting for payment...
+                          {t('waiting_payment')}
                         </p>
                       </div>
                     </div>
 
                     {/* Copia e Cola */}
                     <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                      <p className="text-jb-text-secondary text-xs mb-2">Pix Copia e Cola:</p>
+                      <p className="text-jb-text-secondary text-xs mb-2">{t('pix_copy_paste')}</p>
                       <p className="text-jb-text-primary text-xs font-mono break-all leading-relaxed">
                         {pixPayment.pixCopiaECola.length > 100
                           ? pixPayment.pixCopiaECola.slice(0, 100) + '...'
@@ -226,7 +228,7 @@ export const WalletPage: React.FC = () => {
 
                     {/* Copy Button */}
                     <Button variant="primary" fullWidth onClick={handleCopyPix}>
-                      {copied ? 'Copied!' : 'Copy Pix Code'}
+                      {copied ? t('copied') : t('copy_pix_code')}
                     </Button>
 
                     {/* Sandbox simulate button */}
@@ -237,13 +239,12 @@ export const WalletPage: React.FC = () => {
                         onClick={handleSimulate}
                         className="border border-yellow-500/30 text-yellow-400"
                       >
-                        [SANDBOX] Simulate Payment
+                        {t('sandbox_simulate')}
                       </Button>
                     )}
 
                     <p className="text-jb-text-secondary text-xs text-center">
-                      Open your banking app, select Pix, and paste the code above.
-                      Payment confirms automatically.
+                      {t('open_banking_app')}
                     </p>
 
                     {pollError && (
@@ -251,7 +252,7 @@ export const WalletPage: React.FC = () => {
                     )}
 
                     <Button variant="ghost" fullWidth onClick={handleCancelPix}>
-                      Cancel
+                      {t('cancel')}
                     </Button>
                   </div>
                 ) : pixStatus === 'completed' ? (
@@ -261,7 +262,7 @@ export const WalletPage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <p className="text-jb-accent-green font-bold text-lg">Payment Confirmed!</p>
+                    <p className="text-jb-accent-green font-bold text-lg">{t('payment_success')}</p>
                     <p className="text-jb-text-secondary text-sm">
                       R$ {pixPayment?.amount.toFixed(2)} added to your balance
                     </p>
@@ -269,7 +270,7 @@ export const WalletPage: React.FC = () => {
                       variant="primary"
                       onClick={() => { clearPix(); setShowTopUp(false); }}
                     >
-                      Done
+                      {t('done')}
                     </Button>
                   </div>
                 ) : pixStatus === 'failed' ? (
@@ -279,12 +280,12 @@ export const WalletPage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </div>
-                    <p className="text-jb-highlight-pink font-bold text-lg">Payment Failed</p>
+                    <p className="text-jb-highlight-pink font-bold text-lg">{t('payment_failed')}</p>
                     <p className="text-jb-text-secondary text-sm">
-                      The payment expired or was declined. Please try again.
+                      {t('payment_expired')}
                     </p>
                     <Button variant="primary" onClick={() => clearPix()}>
-                      Try Again
+                      {t('try_again')}
                     </Button>
                   </div>
                 ) : cardClientSecret ? (
@@ -319,7 +320,7 @@ export const WalletPage: React.FC = () => {
 
                     <div className="flex items-center gap-3 my-2">
                       <div className="flex-1 h-px bg-white/10" />
-                      <span className="text-jb-text-secondary text-xs">or custom amount</span>
+                      <span className="text-jb-text-secondary text-xs">{t('custom_amount')}</span>
                       <div className="flex-1 h-px bg-white/10" />
                     </div>
 
@@ -331,12 +332,12 @@ export const WalletPage: React.FC = () => {
                         onChange={(e) => setCustomAmount(e.target.value)}
                       />
                       <Button variant="primary" loading={isLoading} onClick={handleCustomTopUp}>
-                        Go
+                        {t('add')}
                       </Button>
                     </div>
 
                     <Button variant="ghost" fullWidth onClick={() => setShowTopUp(false)}>
-                      Cancel
+                      {t('cancel')}
                     </Button>
                   </div>
                 )}
@@ -347,11 +348,11 @@ export const WalletPage: React.FC = () => {
 
         {/* Transaction History */}
         <div>
-          <h3 className="text-lg font-bold text-jb-text-primary mb-3">Transaction History</h3>
+          <h3 className="text-lg font-bold text-jb-text-primary mb-3">{t('transaction_history')}</h3>
 
           {transactions.length === 0 ? (
             <div className="text-center py-8 text-jb-text-secondary">
-              <p>No transactions yet</p>
+              <p>{t('no_transactions')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -372,7 +373,7 @@ export const WalletPage: React.FC = () => {
                       {transactionLabel(tx)}
                     </p>
                     <p className="text-jb-text-secondary text-xs truncate">
-                      {tx.paymentMethod === 'PIX' ? 'Pix' : tx.paymentMethod === 'WALLET' ? 'Wallet' : 'Card'}
+                      {tx.paymentMethod === 'PIX' ? t('pix') : tx.paymentMethod === 'WALLET' ? 'Wallet' : t('card')}
                       {' · '}
                       {new Date(tx.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SongCard, Skeleton } from '@jukebox/ui';
 import { api } from '../lib/api';
 import { useQueueStore } from '../stores/queueStore';
+import { useI18n } from '../lib/i18n';
 
 interface HistoryItem {
   id: string;
@@ -27,6 +28,7 @@ export const HistoryPage: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { addToQueue, machineId } = useQueueStore();
+  const { t } = useI18n();
 
   useEffect(() => {
     loadHistory();
@@ -57,7 +59,7 @@ export const HistoryPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-jb-bg-primary pb-24 px-4 pt-6">
       <div className="max-w-lg mx-auto">
-        <h2 className="text-2xl font-bold text-jb-text-primary mb-4">Song History</h2>
+        <h2 className="text-2xl font-bold text-jb-text-primary mb-4">{t('song_history')}</h2>
 
         {isLoading ? (
           <div className="space-y-3">
