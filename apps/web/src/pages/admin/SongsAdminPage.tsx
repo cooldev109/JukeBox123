@@ -39,6 +39,12 @@ export const SongsAdminPage: React.FC = () => {
   const [showAddAlbum, setShowAddAlbum] = useState(false);
   const [showAddSong, setShowAddSong] = useState(false);
   const [showBatchImport, setShowBatchImport] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadForm, setUploadForm] = useState({ title: '', artist: '', album: '', genre: 'Pop' });
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -182,6 +188,78 @@ export const SongsAdminPage: React.FC = () => {
     setSaving(false);
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      setFormError('File too large. Maximum 50MB.');
+      return;
+    }
+    if (!file.type.includes('audio') && !file.name.toLowerCase().endsWith('.mp3')) {
+      setFormError('Please select an MP3 file.');
+      return;
+    }
+    setFormError('');
+    setUploadFile(file);
+    // Auto-fill title from filename
+    const filename = file.name.replace(/\.[^/.]+$/, '');
+    setUploadForm(p => ({ ...p, title: p.title || filename }));
+  };
+
+  const handleUploadSong = async () => {
+    if (!uploadFile) { setFormError('Please select a file'); return; }
+    if (!uploadForm.title.trim() || !uploadForm.artist.trim()) {
+      setFormError('Title and artist are required');
+      return;
+    }
+    setUploading(true);
+    setFormError('');
+    setUploadProgress(0);
+
+    try {
+      const reader = new window.FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 50));
+          }
+        };
+      });
+      reader.readAsDataURL(uploadFile);
+      const base64 = await base64Promise;
+
+      setUploadProgress(60);
+      await api.post('/songs/upload', {
+        file: base64,
+        title: uploadForm.title,
+        artist: uploadForm.artist,
+        album: uploadForm.album || undefined,
+        genre: uploadForm.genre,
+      });
+      setUploadProgress(100);
+
+      setTimeout(() => {
+        setShowUpload(false);
+        setUploadFile(null);
+        setUploadForm({ title: '', artist: '', album: '', genre: 'Pop' });
+        setUploading(false);
+        setUploadProgress(0);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        if (view === 'flat') fetchSongs({ search });
+        else if (selectedAlbum) loadAlbumSongs(selectedAlbum);
+      }, 500);
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || 'Upload failed');
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleBatchImport = async () => {
     setSaving(true); setFormError('');
     try {
@@ -239,7 +317,10 @@ export const SongsAdminPage: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-jb-text-primary">Music Catalog</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="secondary" size="sm" onClick={() => { setFormError(''); setShowUpload(true); }}>
+            {'\uD83D\uDCE4'} Upload MP3
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => setShowBatchImport(true)}>Batch Import</Button>
           {view === 'flat' ? (
             <Button variant="primary" size="sm" onClick={() => setShowAddSong(true)}>Add Song</Button>
@@ -526,6 +607,128 @@ export const SongsAdminPage: React.FC = () => {
           {formError && <p className="text-red-400 text-sm">{formError}</p>}
           <Button variant="primary" fullWidth loading={saving} onClick={handleBatchImport}>
             Import {batchForm.songs.split('\n').filter(l => l.trim()).length} Songs
+          </Button>
+        </div>
+      </Modal>
+
+      {/* ========== UPLOAD MP3 MODAL ========== */}
+      <Modal
+        isOpen={showUpload}
+        onClose={() => {
+          if (uploading) return;
+          setShowUpload(false);
+          setUploadFile(null);
+          setFormError('');
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }}
+        title="Upload MP3"
+      >
+        <div className="space-y-4">
+          <p className="text-jb-text-secondary text-sm">
+            Upload an MP3 file to add a new song to the catalog. The file will be stored on the server.
+          </p>
+
+          {/* File picker */}
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/mpeg,audio/mp3,.mp3"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={uploading}
+            />
+            {!uploadFile ? (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-8 border-2 border-dashed border-white/20 rounded-xl hover:border-jb-accent-green/50 hover:bg-white/5 transition-all"
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-2">{'\uD83C\uDFB5'}</div>
+                  <p className="text-jb-text-primary text-sm font-medium">Click to select MP3 file</p>
+                  <p className="text-jb-text-secondary text-xs mt-1">Max 50MB</p>
+                </div>
+              </button>
+            ) : (
+              <div className="bg-jb-bg-secondary/50 rounded-xl p-3 border border-jb-accent-green/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-jb-accent-green/20 flex items-center justify-center">
+                    <span>{'\uD83C\uDFB5'}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-jb-text-primary text-sm font-medium truncate">{uploadFile.name}</p>
+                    <p className="text-jb-text-secondary text-xs">{(uploadFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                  {!uploading && (
+                    <button
+                      onClick={() => {
+                        setUploadFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="text-jb-text-secondary hover:text-jb-highlight-pink p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Metadata form */}
+          <Input
+            label="Title *"
+            value={uploadForm.title}
+            onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
+            disabled={uploading}
+          />
+          <Input
+            label="Artist *"
+            value={uploadForm.artist}
+            onChange={e => setUploadForm(p => ({ ...p, artist: e.target.value }))}
+            disabled={uploading}
+          />
+          <Input
+            label="Album"
+            value={uploadForm.album}
+            onChange={e => setUploadForm(p => ({ ...p, album: e.target.value }))}
+            disabled={uploading}
+          />
+          <Input
+            label="Genre"
+            value={uploadForm.genre}
+            onChange={e => setUploadForm(p => ({ ...p, genre: e.target.value }))}
+            disabled={uploading}
+          />
+
+          {/* Progress bar */}
+          {uploading && (
+            <div>
+              <div className="flex justify-between text-xs text-jb-text-secondary mb-1">
+                <span>Uploading...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-jb-accent-green h-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {formError && <p className="text-red-400 text-sm">{formError}</p>}
+
+          <Button
+            variant="primary"
+            fullWidth
+            loading={uploading}
+            disabled={!uploadFile || uploading}
+            onClick={handleUploadSong}
+          >
+            {uploading ? 'Uploading...' : 'Upload Song'}
           </Button>
         </div>
       </Modal>
