@@ -146,7 +146,6 @@ catalogRouter.post(
 // ============================================
 catalogRouter.get(
   '/discover',
-  requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const params = searchSchema.parse(req.query);
