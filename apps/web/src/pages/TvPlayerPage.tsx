@@ -109,16 +109,15 @@ export const TvPlayerPage: React.FC = () => {
   const { login } = useAuthStore();
 
   const [searchParams] = useSearchParams();
-
-  // Set machine from URL param immediately (before any render)
   const machineFromUrl = searchParams.get('machine');
-  if (machineFromUrl && !machineId) {
-    useTvPlayerStore.getState().setMachineId(machineFromUrl);
-  }
 
-  // Restore state on mount
+  // Restore state and handle ?machine= URL param
   useEffect(() => {
     restoreState();
+    // URL param takes priority over localStorage
+    if (machineFromUrl) {
+      useTvPlayerStore.getState().setMachineId(machineFromUrl);
+    }
     if (isAuthenticated) fetchMe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
