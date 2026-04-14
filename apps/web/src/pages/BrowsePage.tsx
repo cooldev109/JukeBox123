@@ -33,8 +33,8 @@ const genreColors: Record<string, string> = {
   'Eletrônica': 'from-cyan-400 to-blue-600',
 };
 
-const SONG_PRICE = 2.0;
-const VIP_PRICE = 5.0;
+const DEFAULT_songPrice = 2.0;
+const DEFAULT_vipPrice = 5.0;
 
 export const BrowsePage: React.FC = () => {
   const { songs, genres, isLoading, searchQuery, selectedGenre, fetchSongs, fetchGenres, setSearchQuery, setSelectedGenre } = useSongStore();
@@ -70,6 +70,8 @@ export const BrowsePage: React.FC = () => {
   const [showBot, setShowBot] = useState(false);
   const [showVenueConnect, setShowVenueConnect] = useState(false);
   const [showSongRequest, setShowSongRequest] = useState(false);
+  const [songPrice, setSongPrice] = useState(DEFAULT_songPrice);
+  const [vipPrice, setVipPrice] = useState(DEFAULT_vipPrice);
   const [requestTitle, setRequestTitle] = useState('');
   const [requestArtist, setRequestArtist] = useState('');
   const [requestNotes, setRequestNotes] = useState('');
@@ -83,6 +85,14 @@ export const BrowsePage: React.FC = () => {
   useEffect(() => {
     fetchGenres();
     fetchSongs();
+
+    // Fetch dynamic prices from global config
+    api.get('/config/global').then(({ data }) => {
+      const pricing = data.data?.defaultPricing;
+      if (pricing?.songPrice) setSongPrice(pricing.songPrice);
+      if (pricing?.prioritySongPrice) setVipPrice(pricing.prioritySongPrice);
+    }).catch(() => { /* fallback to defaults */ });
+
     if (isAuthenticated) {
       fetchWallet();
       checkProvider();
@@ -201,7 +211,7 @@ export const BrowsePage: React.FC = () => {
   // Pay with Wallet
   const handleWalletPayment = async (isPriority: boolean) => {
     if (!selectedSong || !machineId) return;
-    const price = isPriority ? VIP_PRICE : SONG_PRICE;
+    const price = isPriority ? vipPrice : songPrice;
 
     if (balance < price) {
       setQueueError(`Insufficient balance. You have ${formatPrice(balance)} but need ${formatPrice(price)}. Top up your wallet first.`);
@@ -235,7 +245,7 @@ export const BrowsePage: React.FC = () => {
   // Pay with Pix (direct)
   const handlePixPayment = async (isPriority: boolean) => {
     if (!selectedSong || !machineId) return;
-    const price = isPriority ? VIP_PRICE : SONG_PRICE;
+    const price = isPriority ? vipPrice : songPrice;
 
     setProcessing(true);
     setQueueError('');
@@ -258,7 +268,7 @@ export const BrowsePage: React.FC = () => {
   const handleCardPayment = async (isPriority: boolean) => {
     if (!selectedSong || !machineId) return;
     setProcessing(true);
-    const amount = isPriority ? VIP_PRICE : SONG_PRICE;
+    const amount = isPriority ? vipPrice : songPrice;
     setPendingPriority(isPriority);
     setCardPayAmount(amount);
     try {
@@ -529,7 +539,7 @@ export const BrowsePage: React.FC = () => {
                   artist={song.artist}
                   coverArtUrl={song.coverArtUrl}
                   duration={formatDuration(song.duration)}
-                  price={formatPrice(SONG_PRICE)}
+                  price={formatPrice(songPrice)}
                   onClick={() => {
                     setSelectedSong(song);
                     setPaymentStep('choose');
@@ -868,7 +878,7 @@ export const BrowsePage: React.FC = () => {
                     </button>
                   </div>
 
-                  {selectedPayMethod === 'wallet' && balance < SONG_PRICE && (
+                  {selectedPayMethod === 'wallet' && balance < songPrice && (
                     <p className="text-yellow-400 text-xs text-center">
                       Low balance — top up in the Wallet tab or switch to Pix
                     </p>
@@ -880,7 +890,7 @@ export const BrowsePage: React.FC = () => {
                     loading={processing}
                     onClick={() => handlePayment(false)}
                   >
-                    Add to Queue — {formatPrice(SONG_PRICE)}
+                    Add to Queue — {formatPrice(songPrice)}
                   </Button>
                   <Button
                     variant="danger"
@@ -888,7 +898,7 @@ export const BrowsePage: React.FC = () => {
                     loading={processing}
                     onClick={() => handlePayment(true)}
                   >
-                    VIP (Skip the Line) — {formatPrice(VIP_PRICE)}
+                    VIP (Skip the Line) — {formatPrice(vipPrice)}
                   </Button>
                 </div>
               )}

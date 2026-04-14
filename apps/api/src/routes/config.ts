@@ -33,7 +33,7 @@ const CONFIG_KEYS = {
 // ============================================
 // GET /config/global — Get all global config
 // ============================================
-configRouter.get('/global', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
+configRouter.get('/global', async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const configs = await prisma.globalConfig.findMany({
       where: {
