@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MusicVisualizer } from '@jukebox/ui';
 import { useTvPlayerStore } from '../stores/tvPlayerStore';
@@ -106,6 +107,14 @@ export const TvPlayerPage: React.FC = () => {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
   const { login } = useAuthStore();
+
+  const [searchParams] = useSearchParams();
+
+  // Set machine from URL param immediately (before any render)
+  const machineFromUrl = searchParams.get('machine');
+  if (machineFromUrl && !machineId) {
+    useTvPlayerStore.getState().setMachineId(machineFromUrl);
+  }
 
   // Restore state on mount
   useEffect(() => {
