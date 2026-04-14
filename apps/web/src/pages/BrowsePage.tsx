@@ -284,6 +284,7 @@ export const BrowsePage: React.FC = () => {
       return;
     }
     if (!machineId) {
+      setSelectedSong(null);
       setShowVenueConnect(true);
       return;
     }
