@@ -487,11 +487,11 @@ export const TvPlayerPage: React.FC = () => {
                   Up Next
                 </h3>
                 <p className="text-jb-text-secondary text-xs">
-                  {queue.length} songs in queue
+                  {queue.filter(q => q.id !== currentItem?.id).length} songs in queue
                 </p>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {queue.map((item, i) => (
+                {queue.filter(q => q.id !== currentItem?.id).map((item, i) => (
                   <motion.div
                     key={item.id}
                     initial={{ opacity: 0, x: 20 }}
@@ -546,7 +546,7 @@ export const TvPlayerPage: React.FC = () => {
                     )}
                   </motion.div>
                 ))}
-                {queue.length === 0 && (
+                {queue.filter(q => q.id !== currentItem?.id).length === 0 && (
                   <p className="text-jb-text-secondary text-sm text-center py-8">
                     Queue is empty
                   </p>
