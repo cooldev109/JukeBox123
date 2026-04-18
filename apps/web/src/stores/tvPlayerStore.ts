@@ -149,33 +149,26 @@ export const useTvPlayerStore = create<TvPlayerState>((set, get) => ({
   },
 
   playNext: () => {
-    const { queue, currentItem } = get();
-    // Find next item after current
-    const currentIndex = currentItem
-      ? queue.findIndex((q) => q.id === currentItem.id)
-      : -1;
-    const nextItem = queue[currentIndex + 1] || null;
+    const { queue, currentItem, machineId } = get();
 
-    if (nextItem) {
-      set({
-        currentItem: nextItem,
-        progress: 0,
-        elapsed: 0,
-        isPlaying: true,
-        isIdle: false,
-      });
-    } else {
-      set({
-        currentItem: null,
-        progress: 0,
-        elapsed: 0,
-        isPlaying: false,
-        isIdle: true,
-      });
-    }
+    // Remove the finished song from local queue immediately
+    const remainingQueue = currentItem
+      ? queue.filter((q) => q.id !== currentItem.id)
+      : queue;
 
-    // Notify backend that song finished
-    const { machineId } = get();
+    // Pick the next item from the cleaned queue
+    const nextItem = remainingQueue[0] || null;
+
+    set({
+      queue: remainingQueue,
+      currentItem: nextItem,
+      progress: 0,
+      elapsed: 0,
+      isPlaying: !!nextItem,
+      isIdle: !nextItem,
+    });
+
+    // Notify backend that song finished — it will mark PLAYED and emit queue:updated
     if (machineId && currentItem) {
       api.post(`/machines/${machineId}/queue/advance`).catch(() => {});
     }
