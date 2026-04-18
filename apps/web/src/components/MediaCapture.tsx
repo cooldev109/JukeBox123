@@ -39,6 +39,7 @@ export const MediaCapture: React.FC<MediaCaptureProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mediaDuration, setMediaDuration] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const icon = ICON_MAP[type];
 
@@ -107,19 +108,30 @@ export const MediaCapture: React.FC<MediaCaptureProps> = ({
     setMediaDuration(0);
     setStatus('idle');
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   return (
     <div className="space-y-4">
-      {/* Hidden file input */}
+      {/* Hidden file input — Gallery only (no capture attribute) */}
       <input
         ref={fileInputRef}
         type="file"
         accept={ACCEPT_MAP[type]}
-        capture={type === 'photo' ? 'user' : undefined}
         onChange={handleFileSelect}
         className="hidden"
       />
+      {/* Hidden camera input — only for photo */}
+      {type === 'photo' && (
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+      )}
 
       {/* === IDLE — Choose file === */}
       {status === 'idle' && (
@@ -146,12 +158,7 @@ export const MediaCapture: React.FC<MediaCaptureProps> = ({
             <Button
               variant="secondary"
               fullWidth
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.setAttribute('capture', 'user');
-                  fileInputRef.current.click();
-                }
-              }}
+              onClick={() => cameraInputRef.current?.click()}
             >
               Take Photo
             </Button>
