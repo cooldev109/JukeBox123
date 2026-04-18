@@ -65,9 +65,7 @@ const textMessageSchema = z.object({
 const voiceMessageSchema = z.object({
   machineId: z.string().uuid(),
   audioUrl: z.string().min(1),
-  duration: z.number().refine((v) => [5, 15].includes(v), {
-    message: 'Duration must be 5 or 15 seconds',
-  }),
+  duration: z.number().min(1).max(60),
 });
 
 const photoSchema = z.object({
@@ -396,8 +394,10 @@ eventRouter.post(
       const { config } = await getEventConfig(data.machineId);
       if (!config.voiceMessage.enabled) throw new AppError('Voice message feature is not enabled at this venue', 400);
 
-      const option = config.voiceMessage.options.find((o) => o.duration === data.duration);
-      if (!option) throw new AppError('Invalid voice message duration', 400);
+      // Map actual duration to nearest available tier (e.g. 3s → 5s tier, 12s → 15s tier)
+      const sortedOptions = [...config.voiceMessage.options].sort((a, b) => a.duration - b.duration);
+      const option = sortedOptions.find((o) => data.duration <= o.duration) || sortedOptions[sortedOptions.length - 1];
+      if (!option) throw new AppError('No voice message option configured', 400);
 
       const result = await prisma.$transaction(async (tx) => {
         const transaction = await chargeWallet(tx, userId, option.price, 'VOICE_MSG', data.machineId);
