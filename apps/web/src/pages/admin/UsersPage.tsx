@@ -162,7 +162,10 @@ export const UsersPage: React.FC = () => {
           ))}
         </div>
       ) : users.length === 0 ? (
-        <p className="text-jb-text-secondary text-center py-20">No users found</p>
+        <div className="text-center py-20">
+          <p className="text-jb-text-secondary mb-4">No users found</p>
+          <Button variant="ghost" size="sm" onClick={loadUsers}>Retry</Button>
+        </div>
       ) : (
         <div className="space-y-2">
           {users.map((user) => (
