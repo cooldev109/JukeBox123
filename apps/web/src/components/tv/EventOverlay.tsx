@@ -177,7 +177,7 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
         onMuteAudio?.();
         break;
       case 'photo':
-        duration = 10000;
+        duration = ((activeEvent as any).duration || 180) * 1000;
         break;
       case 'reaction':
         duration = 4000;

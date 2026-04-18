@@ -24,7 +24,7 @@ const DEFAULT_EVENT_CONFIG = {
       { duration: 180, price: 15.0 },
     ],
   },
-  textMessage: { enabled: true, price: 2.0, maxLength: 200 },
+  textMessage: { enabled: true, price: 2.0, maxLength: 200, displayDuration: 30 },
   voiceMessage: {
     enabled: true,
     options: [
@@ -33,7 +33,7 @@ const DEFAULT_EVENT_CONFIG = {
     ],
     requiresApproval: true,
   },
-  photo: { enabled: true, price: 5.0, requiresApproval: true },
+  photo: { enabled: true, price: 5.0, requiresApproval: true, displayDuration: 180 },
   reaction: {
     enabled: true,
     price: 1.0,
@@ -364,7 +364,7 @@ eventRouter.post(
         eventId: result.event.id,
         message: data.message,
         userName: user?.name,
-        duration: 15,
+        duration: (config.textMessage as any).displayDuration || 30,
       });
 
       res.status(201).json({
@@ -718,10 +718,12 @@ eventRouter.post(
           duration: event.duration,
         });
       } else if (event.type === 'PHOTO') {
+        const photoConfig = await getEventConfig(event.machineId).then(r => r.config.photo as any);
         io.to(`machine:${event.machineId}`).emit('event:photo', {
           eventId: event.id,
           photoUrl: event.content,
           userName: event.user.name,
+          duration: photoConfig?.displayDuration || 180,
         });
       }
 
