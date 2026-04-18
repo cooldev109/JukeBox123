@@ -305,7 +305,7 @@ machineRouter.get(
           name: true,
           status: true,
           venue: {
-            select: { id: true, name: true },
+            select: { id: true, name: true, code: true },
           },
         },
       });

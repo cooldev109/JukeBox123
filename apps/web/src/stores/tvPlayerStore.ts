@@ -27,6 +27,7 @@ interface TvPlayerState {
   machineId: string | null;
   machineName: string | null;
   venueName: string | null;
+  venueCode: string | null;
   queue: QueueItem[];
   currentItem: QueueItem | null;
   isPlaying: boolean;
@@ -59,6 +60,7 @@ export const useTvPlayerStore = create<TvPlayerState>((set, get) => ({
   machineId: null,
   machineName: null,
   venueName: null,
+  venueCode: null,
   queue: [],
   currentItem: null,
   isPlaying: false,
@@ -82,6 +84,7 @@ export const useTvPlayerStore = create<TvPlayerState>((set, get) => ({
       set({
         machineName: machine.name,
         venueName: machine.venue?.name || null,
+        venueCode: machine.venue?.code || null,
       });
     } catch {
       // Machine not found

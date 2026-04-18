@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeCanvas } from 'qrcode.react';
 import { MusicVisualizer } from '@jukebox/ui';
 import { useTvPlayerStore } from '../stores/tvPlayerStore';
 import { useAuthStore } from '../stores/authStore';
@@ -76,6 +77,7 @@ export const TvPlayerPage: React.FC = () => {
     machineId,
     machineName,
     venueName,
+    venueCode,
     queue,
     currentItem,
     isPlaying,
@@ -622,6 +624,20 @@ export const TvPlayerPage: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* QR Code for customers to scan */}
+      {venueCode && (
+        <div className="fixed bottom-4 right-4 z-30 bg-white rounded-xl p-3 shadow-2xl flex flex-col items-center gap-1">
+          <QRCodeCanvas
+            value={`${window.location.origin}/browse?venue=${encodeURIComponent(venueCode)}`}
+            size={120}
+            level="M"
+            includeMargin={false}
+          />
+          <p className="text-black text-xs font-bold">{venueCode}</p>
+          <p className="text-gray-600 text-[10px]">Scan to play music</p>
+        </div>
+      )}
 
       {/* Special Event Overlays */}
       <EventOverlay onMuteAudio={handleMuteAudio} onUnmuteAudio={handleUnmuteAudio} />
