@@ -4,6 +4,7 @@ import { Button, Modal } from '@jukebox/ui';
 import { useEventsStore } from '../stores/eventsStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useWalletStore } from '../stores/walletStore';
+import { useSongStore } from '../stores/songStore';
 import { MediaCapture } from '../components/MediaCapture';
 import { useI18n } from '../lib/i18n';
 
@@ -42,6 +43,8 @@ export const SpecialEventsPage: React.FC = () => {
   // Birthday state
   const [birthdayName, setBirthdayName] = useState('');
   const [birthdayMessage, setBirthdayMessage] = useState('');
+  const [birthdaySongId, setBirthdaySongId] = useState<string | undefined>(undefined);
+  const { songs, fetchSongs } = useSongStore();
 
   // Skip queue state
   const [selectedQueueItem, setSelectedQueueItem] = useState('');
@@ -50,7 +53,8 @@ export const SpecialEventsPage: React.FC = () => {
     if (machineId) {
       fetchConfig(machineId);
     }
-  }, [machineId, fetchConfig]);
+    fetchSongs();
+  }, [machineId, fetchConfig, fetchSongs]);
 
   const showSuccess = (msg: string) => {
     setSuccessMessage(msg);
@@ -352,6 +356,19 @@ export const SpecialEventsPage: React.FC = () => {
             placeholder="Optional message (e.g., Happy Birthday from your friends!)"
             className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-jb-text-primary placeholder-jb-text-secondary/50 resize-none h-20 focus:border-jb-accent-green focus:outline-none"
           />
+          <div>
+            <label className="text-jb-text-secondary text-xs mb-1 block">Choose a song (optional — will be added to queue)</label>
+            <select
+              value={birthdaySongId || ''}
+              onChange={(e) => setBirthdaySongId(e.target.value || undefined)}
+              className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg p-3 text-jb-text-primary focus:border-jb-accent-green focus:outline-none"
+            >
+              <option value="">No song — just the celebration overlay</option>
+              {songs.map((s: any) => (
+                <option key={s.id} value={s.id}>{s.title} — {s.artist}</option>
+              ))}
+            </select>
+          </div>
           <Button
             variant="primary"
             fullWidth
@@ -360,11 +377,12 @@ export const SpecialEventsPage: React.FC = () => {
             onClick={() => {
               if (!machineId) return;
               handlePurchase(
-                () => purchaseBirthday(machineId, birthdayName.trim(), birthdayMessage.trim() || undefined),
+                () => purchaseBirthday(machineId, birthdayName.trim(), birthdayMessage.trim() || undefined, birthdaySongId),
                 `Birthday celebration for ${birthdayName} is live!`
               );
               setBirthdayName('');
               setBirthdayMessage('');
+              setBirthdaySongId(undefined);
             }}
           >
             Celebrate — {formatPrice(config?.birthday.price ?? 25)}
