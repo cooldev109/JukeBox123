@@ -340,7 +340,7 @@ venueRouter.put('/:id', requireAuth, requireVenueAccess('id'), async (req: Reque
 // ============================================
 // GET /venues/:id/pricing — Get venue pricing
 // ============================================
-venueRouter.get('/:id/pricing', requireAuth, requireVenueAccess('id'), async (req: Request, res: Response, next: NextFunction) => {
+venueRouter.get('/:id/pricing', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const venueId = req.params.id as string;
     const venue = await prisma.venue.findUnique({

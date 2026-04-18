@@ -86,7 +86,7 @@ export const BrowsePage: React.FC = () => {
     fetchGenres();
     fetchSongs();
 
-    // Fetch dynamic prices from global config
+    // Fetch dynamic prices from global config (fallback when not connected to a venue)
     api.get('/config/global').then(({ data }) => {
       const pricing = data.data?.defaultPricing;
       if (pricing?.songPrice) setSongPrice(pricing.songPrice);
@@ -105,6 +105,21 @@ export const BrowsePage: React.FC = () => {
       autoConnectVenue(venueFromUrl);
     }
   }, []);
+
+  // Fetch venue-specific pricing when connected to a machine
+  useEffect(() => {
+    if (!machineId) return;
+    // Get venue ID from machine, then fetch its pricing
+    api.get(`/machines/${machineId}/public`).then(({ data }) => {
+      const venueId = data.data?.machine?.venue?.id;
+      if (!venueId) return;
+      api.get(`/venues/${venueId}/pricing`).then(({ data: pricingData }) => {
+        const pricing = pricingData.data?.pricing;
+        if (pricing?.songPrice) setSongPrice(pricing.songPrice);
+        if (pricing?.prioritySongPrice) setVipPrice(pricing.prioritySongPrice);
+      }).catch(() => { /* use global prices */ });
+    }).catch(() => { /* ignore */ });
+  }, [machineId]);
 
   const autoConnectVenue = async (code: string) => {
     setConnectingVenue(true);
