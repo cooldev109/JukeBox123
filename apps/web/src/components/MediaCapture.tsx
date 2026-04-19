@@ -88,7 +88,8 @@ export const MediaCapture: React.FC<MediaCaptureProps> = ({
       reader.readAsDataURL(selectedFile);
       const base64 = await base64Promise;
 
-      const uploadType = type === 'video' ? 'image' : type; // backend accepts 'audio' or 'image'
+      // Backend accepts 'audio', 'image', or 'video'. Frontend uses 'audio', 'photo', 'video'.
+      const uploadType = type === 'photo' ? 'image' : type;
       const { data } = await api.post('/events/upload', {
         file: base64,
         type: uploadType,
