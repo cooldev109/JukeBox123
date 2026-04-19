@@ -873,14 +873,16 @@ eventRouter.get(
 eventRouter.post(
   '/upload',
   requireAuth,
-  requireRole('CUSTOMER'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Handle base64 upload (simpler than multer for now)
       const { file, type, filename } = req.body;
 
-      if (!file || !type) {
-        throw new AppError('File and type are required', 400);
+      if (!file) {
+        throw new AppError('File is required (base64-encoded)', 400);
+      }
+      if (!type) {
+        throw new AppError('Type is required (audio, image, or video)', 400);
       }
 
       if (!['audio', 'image', 'video'].includes(type)) {

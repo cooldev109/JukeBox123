@@ -95,8 +95,9 @@ export const MediaCapture: React.FC<MediaCaptureProps> = ({
       });
 
       onCapture(data.data.url, type !== 'photo' ? mediaDuration : undefined);
-    } catch {
-      setError('Upload failed. Please try again.');
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.message || 'Upload failed. Please try again.';
+      setError(msg);
       setStatus('preview');
     }
   };
