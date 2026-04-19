@@ -158,9 +158,9 @@ export const useBarOwnerStore = create<BarOwnerState>((set, get) => ({
   updatePricing: async (songPrice, priorityPrice) => {
     const venue = get().venue;
     if (!venue) return;
-    await api.put(`/venues/${venue.id}/pricing`, { songPrice, priorityPrice });
+    await api.put(`/venues/${venue.id}/pricing`, { songPrice, prioritySongPrice: priorityPrice });
     set((state) => ({
-      venue: state.venue ? { ...state.venue, settings: { ...(state.venue.settings || { songPrice: 200, priorityPrice: 500, autoPlayPlaylistId: null, displayOptions: {} }), songPrice, priorityPrice } } : null,
+      venue: state.venue ? { ...state.venue, settings: { ...(state.venue.settings || { songPrice: 2.0, priorityPrice: 5.0, autoPlayPlaylistId: null, displayOptions: {} }), songPrice, priorityPrice } } : null,
     }));
   },
 

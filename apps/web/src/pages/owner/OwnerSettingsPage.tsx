@@ -23,8 +23,8 @@ const PIX_KEY_TYPES = [
 export const OwnerSettingsPage: React.FC = () => {
   const { venue, playlists, fetchVenue, fetchPlaylists, updatePricing, updateSettings } = useBarOwnerStore();
 
-  const [songPrice, setSongPrice] = useState(200);
-  const [priorityPrice, setPriorityPrice] = useState(500);
+  const [songPrice, setSongPrice] = useState(2.0);
+  const [priorityPrice, setPriorityPrice] = useState(5.0);
   const [autoPlayPlaylistId, setAutoPlayPlaylistId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -51,8 +51,8 @@ export const OwnerSettingsPage: React.FC = () => {
 
   useEffect(() => {
     if (venue?.settings) {
-      setSongPrice(venue.settings.songPrice || 200);
-      setPriorityPrice(venue.settings.priorityPrice || 500);
+      setSongPrice(venue.settings.songPrice || 2.0);
+      setPriorityPrice(venue.settings.priorityPrice || 5.0);
       setAutoPlayPlaylistId(venue.settings.autoPlayPlaylistId || '');
     }
     if (venue) {
@@ -188,19 +188,21 @@ export const OwnerSettingsPage: React.FC = () => {
           <h3 className="text-lg font-bold text-jb-text-primary mb-4">Song Pricing</h3>
           <div className="space-y-4">
             <Input
-              label="Regular Song Price (centavos)"
+              label="Regular Song Price (R$)"
               type="number"
+              step="0.01"
               value={String(songPrice)}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSongPrice(parseInt(e.target.value) || 0)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSongPrice(parseFloat(e.target.value) || 0)}
             />
-            <p className="text-jb-text-secondary text-xs">= R$ {(songPrice / 100).toFixed(2)} per song</p>
+            <p className="text-jb-text-secondary text-xs">= R$ {songPrice.toFixed(2)} per song (e.g., enter 2 for R$ 2.00)</p>
             <Input
-              label="VIP / Priority Price (centavos)"
+              label="VIP / Priority Price (R$)"
               type="number"
+              step="0.01"
               value={String(priorityPrice)}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPriorityPrice(parseInt(e.target.value) || 0)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPriorityPrice(parseFloat(e.target.value) || 0)}
             />
-            <p className="text-jb-text-secondary text-xs">= R$ {(priorityPrice / 100).toFixed(2)} per VIP song</p>
+            <p className="text-jb-text-secondary text-xs">= R$ {priorityPrice.toFixed(2)} per VIP song (e.g., enter 5 for R$ 5.00)</p>
             <Button variant="primary" fullWidth loading={saving} onClick={handleSavePricing}>
               {saved ? 'Saved!' : 'Save Pricing'}
             </Button>
