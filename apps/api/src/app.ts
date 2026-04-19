@@ -46,9 +46,9 @@ export function createApp() {
   });
   app.use(limiter);
 
-  // Body parsing
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  // Body parsing — 80mb to allow 50MB MP3 files (base64 adds ~33% overhead)
+  app.use(express.json({ limit: '80mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '80mb' }));
 
   // Logging
   if (process.env.NODE_ENV !== 'test') {
