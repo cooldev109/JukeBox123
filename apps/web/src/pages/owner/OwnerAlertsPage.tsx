@@ -20,6 +20,11 @@ export const OwnerAlertsPage: React.FC = () => {
   useEffect(() => {
     fetchAlerts();
     fetchPending();
+    // Auto-refresh pending events every 10 seconds
+    const interval = setInterval(() => {
+      fetchPending();
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAlerts = async () => {
@@ -90,6 +95,21 @@ export const OwnerAlertsPage: React.FC = () => {
                     <p className="text-jb-text-secondary text-xs mt-1">
                       {event.machine.name} — {event.machine.venue.name}
                     </p>
+                    {/* Preview of photo or audio */}
+                    {event.type === 'PHOTO' && (event as any).content && (
+                      <img
+                        src={(event as any).content}
+                        alt="Photo preview"
+                        className="mt-2 max-w-xs max-h-48 rounded-lg border border-white/10"
+                      />
+                    )}
+                    {event.type === 'VOICE_MESSAGE' && (event as any).content && (
+                      <audio
+                        controls
+                        src={(event as any).content}
+                        className="mt-2 w-full max-w-xs"
+                      />
+                    )}
                     <p className="text-jb-text-secondary text-xs">
                       {new Date(event.createdAt).toLocaleString('pt-BR')}
                     </p>
