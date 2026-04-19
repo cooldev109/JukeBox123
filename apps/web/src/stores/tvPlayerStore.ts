@@ -97,15 +97,31 @@ export const useTvPlayerStore = create<TvPlayerState>((set, get) => ({
     try {
       const { data } = await api.get(`/machines/${machineId}/queue`);
       const queue = data.data.queue || [];
-      set({ queue });
 
-      // If nothing is playing, start the first item
+      // Find the currently playing song from queue
+      const playingFromQueue = queue.find((q: any) => q.status === 'PLAYING');
+
       const { currentItem } = get();
-      if (!currentItem && queue.length > 0) {
-        set({ currentItem: queue[0], isIdle: false });
-      }
-      if (queue.length === 0 && !currentItem) {
-        set({ isIdle: true });
+
+      // If queue has a PLAYING song, use it as currentItem
+      if (playingFromQueue) {
+        set({ queue, currentItem: playingFromQueue, isIdle: false });
+      } else if (queue.length > 0 && !currentItem) {
+        // No PLAYING song but queue has PENDING songs — tell backend to start the first one
+        set({ queue });
+        try {
+          const advanceRes = await api.post(`/machines/${machineId}/queue/advance`);
+          if (advanceRes.data?.data?.nowPlaying) {
+            set({ currentItem: advanceRes.data.data.nowPlaying, isIdle: false });
+          }
+        } catch {
+          // Fall back to local-only mode
+          set({ currentItem: queue[0], isIdle: false });
+        }
+      } else if (queue.length === 0 && !currentItem) {
+        set({ queue, isIdle: true });
+      } else {
+        set({ queue });
       }
     } catch {
       // Offline or error

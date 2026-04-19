@@ -490,10 +490,52 @@ queueRouter.post('/:id/queue/advance', async (req: Request, res: Response, next:
       where: { machineId, status: 'PLAYING' },
     });
 
+    // If nothing is playing yet, start the first PENDING song
     if (!currentlyPlaying) {
+      const firstPending = await prisma.queueItem.findFirst({
+        where: { machineId, status: 'PENDING' },
+        orderBy: { position: 'asc' },
+      });
+
+      if (!firstPending) {
+        return res.json({
+          success: true,
+          data: { skipped: null, nowPlaying: null },
+        });
+      }
+
+      await prisma.queueItem.update({
+        where: { id: firstPending.id },
+        data: { status: 'PLAYING', playedAt: new Date() },
+      });
+
+      const nowPlaying = await prisma.queueItem.findUnique({
+        where: { id: firstPending.id },
+        include: {
+          song: {
+            select: {
+              id: true, title: true, artist: true, album: true,
+              genre: true, duration: true, coverArtUrl: true,
+              fileUrl: true, videoUrl: true, format: true,
+            },
+          },
+          user: { select: { id: true, name: true, avatar: true } },
+        },
+      });
+
+      await prisma.song.update({
+        where: { id: firstPending.songId },
+        data: { playCount: { increment: 1 } },
+      });
+
+      const io = getIO();
+      const updatedQueue = await getFullQueue(machineId);
+      io.to(`machine:${machineId}`).emit('queue:updated', updatedQueue);
+      io.to(`machine:${machineId}`).emit('queue:now-playing', nowPlaying);
+
       return res.json({
         success: true,
-        data: { skipped: null, nowPlaying: null },
+        data: { skipped: null, nowPlaying },
       });
     }
 
