@@ -38,7 +38,7 @@ const DEFAULT_vipPrice = 5.0;
 
 export const BrowsePage: React.FC = () => {
   const { songs, genres, isLoading, searchQuery, selectedGenre, fetchSongs, fetchGenres, setSearchQuery, setSelectedGenre } = useSongStore();
-  const { machineId, setMachineId } = useQueueStore();
+  const { machineId, setMachineId, venueName, setVenueInfo } = useQueueStore();
   const { balance, fetchWallet, generatePixForSong, pollPixStatus, simulatePixPayment, spendFromWallet, clearPix, pixPayment, pixStatus, isSandbox, checkProvider } = useWalletStore();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
@@ -127,9 +127,11 @@ export const BrowsePage: React.FC = () => {
     try {
       const { data } = await api.post('/auth/connect-venue', { venueCode: code.trim().toUpperCase() });
       const machine = data.data?.machine;
+      const venue = data.data?.venue;
       if (!machine) { setVenueError('No machines available at this venue'); return; }
       setMachineId(machine.id);
       localStorage.setItem('jb_machine_id', machine.id);
+      if (venue) setVenueInfo(venue.name, venue.code || code.trim().toUpperCase());
       setVenueCode('');
       // Remove venue param from URL after connecting
       searchParams.delete('venue');
@@ -434,9 +436,11 @@ export const BrowsePage: React.FC = () => {
     try {
       const { data } = await api.post('/auth/connect-venue', { venueCode: venueCode.trim().toUpperCase() });
       const machine = data.data?.machine;
+      const venue = data.data?.venue;
       if (!machine) { setVenueError('No machines available at this venue'); return; }
       setMachineId(machine.id);
       localStorage.setItem('jb_machine_id', machine.id);
+      if (venue) setVenueInfo(venue.name, venue.code || venueCode.trim().toUpperCase());
       setVenueCode('');
     } catch (err: any) {
       setVenueError(err.response?.data?.error || 'Venue not found');
@@ -474,6 +478,27 @@ export const BrowsePage: React.FC = () => {
               )}
             </div>
           </div>
+
+          {/* Connected venue banner */}
+          {machineId && venueName && (
+            <div className="flex items-center justify-between gap-2 mb-2 px-3 py-2 rounded-lg bg-jb-accent-green/10 border border-jb-accent-green/30">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 bg-jb-accent-green rounded-full animate-pulse flex-shrink-0" />
+                <span className="text-jb-text-secondary text-xs">Connected to:</span>
+                <span className="text-jb-accent-green text-sm font-bold truncate">{venueName}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setMachineId('');
+                  setVenueInfo(null, null);
+                  localStorage.removeItem('jb_machine_id');
+                }}
+                className="text-jb-text-secondary hover:text-jb-highlight-pink text-xs whitespace-nowrap"
+              >
+                Disconnect
+              </button>
+            </div>
+          )}
 
           <SearchBar
             value={searchQuery}

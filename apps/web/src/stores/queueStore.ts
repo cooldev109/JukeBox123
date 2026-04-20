@@ -33,8 +33,11 @@ interface QueueState {
   queue: QueueItem[];
   nowPlaying: NowPlaying | null;
   machineId: string | null;
+  venueName: string | null;
+  venueCode: string | null;
   isLoading: boolean;
   setMachineId: (id: string) => void;
+  setVenueInfo: (name: string | null, code: string | null) => void;
   fetchQueue: (machineId: string) => Promise<void>;
   fetchNowPlaying: (machineId: string) => Promise<void>;
   addToQueue: (machineId: string, songId: string, isPriority?: boolean) => Promise<void>;
@@ -46,9 +49,19 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   queue: [],
   nowPlaying: null,
   machineId: localStorage.getItem('jb_machine_id'),
+  venueName: localStorage.getItem('jb_venue_name'),
+  venueCode: localStorage.getItem('jb_venue_code'),
   isLoading: false,
 
   setMachineId: (id) => set({ machineId: id }),
+
+  setVenueInfo: (name, code) => {
+    if (name) localStorage.setItem('jb_venue_name', name);
+    else localStorage.removeItem('jb_venue_name');
+    if (code) localStorage.setItem('jb_venue_code', code);
+    else localStorage.removeItem('jb_venue_code');
+    set({ venueName: name, venueCode: code });
+  },
 
   fetchQueue: async (machineId) => {
     set({ isLoading: true });
