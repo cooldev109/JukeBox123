@@ -42,7 +42,7 @@ interface EventsState {
 
   fetchConfig: (machineId: string) => Promise<void>;
   purchaseSkipQueue: (machineId: string, queueItemId: string) => Promise<{ eventId: string; transactionId: string }>;
-  purchaseSilence: (machineId: string, duration: number) => Promise<{ eventId: string; transactionId: string }>;
+  purchaseSilence: (machineId: string, duration: number, mode?: 'immediate' | 'between') => Promise<{ eventId: string; transactionId: string }>;
   purchaseTextMessage: (machineId: string, message: string) => Promise<{ eventId: string; transactionId: string }>;
   purchaseVoiceMessage: (machineId: string, audioUrl: string, duration: number) => Promise<{ eventId: string; transactionId: string }>;
   purchasePhoto: (machineId: string, photoUrl: string) => Promise<{ eventId: string; transactionId: string }>;
@@ -86,10 +86,10 @@ export const useEventsStore = create<EventsState>((set) => ({
     }
   },
 
-  purchaseSilence: async (machineId, duration) => {
+  purchaseSilence: async (machineId, duration, mode = 'between') => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.post('/events/silence', { machineId, duration });
+      const { data } = await api.post('/events/silence', { machineId, duration, mode });
       return data.data;
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to purchase silence';

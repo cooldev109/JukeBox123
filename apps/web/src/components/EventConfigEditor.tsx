@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 
 interface EventConfig {
   skipQueue: { enabled: boolean; price: number };
-  silence: { enabled: boolean; options: { duration: number; price: number }[] };
+  silence: { enabled: boolean; options: { duration: number; price: number }[]; immediateMultiplier?: number };
   textMessage: { enabled: boolean; price: number; maxLength: number; displayDuration: number };
   voiceMessage: { enabled: boolean; options: { duration: number; price: number }[]; requiresApproval: boolean };
   photo: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number };
@@ -98,6 +98,7 @@ export const EventConfigEditor: React.FC<EventConfigEditorProps> = ({ venueId })
             Enabled
           </label>
         </div>
+        <p className="text-jb-text-secondary text-xs mb-2">Base prices (when silence happens AFTER current song):</p>
         <div className="space-y-2">
           {config.silence.options.map((opt, i) => (
             <div key={i} className="flex gap-2 items-end">
@@ -124,6 +125,18 @@ export const EventConfigEditor: React.FC<EventConfigEditorProps> = ({ venueId })
               />
             </div>
           ))}
+        </div>
+        <div className="mt-3">
+          <Input
+            label="Immediate Silence Price Multiplier"
+            type="number"
+            step="0.1"
+            value={String(config.silence.immediateMultiplier ?? 2.5)}
+            onChange={(e) => setConfig({ ...config, silence: { ...config.silence, immediateMultiplier: parseFloat(e.target.value) || 1 } })}
+          />
+          <p className="text-jb-text-secondary text-xs mt-1">
+            When customer chooses "Right now" (interrupt current song), price is multiplied by this. Default: 2.5x
+          </p>
         </div>
       </Card>
 

@@ -164,11 +164,18 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
 
     let duration = 0;
     switch (activeEvent.type) {
-      case 'silence':
+      case 'silence': {
         duration = activeEvent.duration * 1000;
         setCountdown(activeEvent.duration);
-        onMuteAudio?.();
+        const mode = (activeEvent as any).mode || 'between';
+        if (mode === 'immediate') {
+          // Stop current song immediately
+          onMuteAudio?.();
+        }
+        // For 'between' mode: don't mute now, just queue the silence overlay
+        // (audio will continue until the song ends naturally, then next song is delayed)
         break;
+      }
       case 'textMessage':
         duration = activeEvent.duration * 1000;
         break;

@@ -23,6 +23,7 @@ const DEFAULT_EVENT_CONFIG = {
       { duration: 120, price: 10.0 },
       { duration: 180, price: 15.0 },
     ],
+    immediateMultiplier: 2.5, // immediate silence costs 2.5x more (e.g. 60s between=R$5, immediate=R$12.50)
   },
   textMessage: { enabled: true, price: 2.0, maxLength: 200, displayDuration: 30 },
   voiceMessage: {
@@ -52,9 +53,8 @@ const skipQueueSchema = z.object({
 
 const silenceSchema = z.object({
   machineId: z.string().uuid(),
-  duration: z.number().refine((v) => [60, 120, 180].includes(v), {
-    message: 'Duration must be 60, 120, or 180 seconds',
-  }),
+  duration: z.number().int().min(15).max(600),
+  mode: z.enum(['immediate', 'between']).default('between'),
 });
 
 const textMessageSchema = z.object({
@@ -401,11 +401,19 @@ eventRouter.post(
       const { config } = await getEventConfig(data.machineId);
       if (!config.silence.enabled) throw new AppError('Silence feature is not enabled at this venue', 400);
 
-      const option = config.silence.options.find((o) => o.duration === data.duration);
-      if (!option) throw new AppError('Invalid silence duration', 400);
+      // Find the closest matching option (or use linear pricing)
+      const sortedOptions = [...config.silence.options].sort((a, b) => a.duration - b.duration);
+      let baseOption = sortedOptions.find((o) => o.duration >= data.duration);
+      if (!baseOption) baseOption = sortedOptions[sortedOptions.length - 1];
+
+      // Apply price multiplier for immediate mode
+      const multiplier = data.mode === 'immediate'
+        ? ((config.silence as any).immediateMultiplier || 2.5)
+        : 1;
+      const finalPrice = Math.round(baseOption.price * multiplier * 100) / 100;
 
       const result = await prisma.$transaction(async (tx) => {
-        const transaction = await chargeWallet(tx, userId, option.price, 'SILENCE', data.machineId);
+        const transaction = await chargeWallet(tx, userId, finalPrice, 'SILENCE', data.machineId);
 
         const event = await tx.specialEvent.create({
           data: {
@@ -413,8 +421,9 @@ eventRouter.post(
             userId,
             type: 'SILENCE',
             duration: data.duration,
-            amount: option.price,
+            amount: finalPrice,
             status: 'APPROVED',
+            content: data.mode, // store mode in content field
           },
         });
 
@@ -427,6 +436,7 @@ eventRouter.post(
       io.to(`machine:${data.machineId}`).emit('event:silence', {
         eventId: result.event.id,
         duration: data.duration,
+        mode: data.mode,
         startedAt: new Date().toISOString(),
         userName: user?.name,
       });

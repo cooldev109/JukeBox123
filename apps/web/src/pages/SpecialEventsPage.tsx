@@ -33,6 +33,7 @@ export const SpecialEventsPage: React.FC = () => {
 
   // Silence state
   const [selectedDuration, setSelectedDuration] = useState(60);
+  const [silenceMode, setSilenceMode] = useState<'immediate' | 'between'>('between');
 
   // Text message state
   const [textMessage, setTextMessage] = useState('');
@@ -235,24 +236,58 @@ export const SpecialEventsPage: React.FC = () => {
       {/* ============================================ */}
       <Modal isOpen={activeModal === 'silence'} onClose={() => setActiveModal(null)} title="Silence the Music">
         <div className="space-y-4">
-          <p className="text-jb-text-secondary text-sm">Choose how long to silence the music:</p>
-          <div className="space-y-2">
-            {config?.silence.options.map((opt) => (
+          {/* When to silence */}
+          <div>
+            <p className="text-jb-text-secondary text-sm mb-2">When to silence:</p>
+            <div className="grid grid-cols-2 gap-2">
               <button
-                key={opt.duration}
-                onClick={() => setSelectedDuration(opt.duration)}
-                className={`w-full p-3 rounded-lg border transition-all ${
-                  selectedDuration === opt.duration
+                onClick={() => setSilenceMode('between')}
+                className={`p-3 rounded-lg border text-sm transition-all ${
+                  silenceMode === 'between'
                     ? 'border-jb-accent-green bg-jb-accent-green/10 text-jb-text-primary'
                     : 'border-white/10 text-jb-text-secondary hover:border-white/20'
                 }`}
               >
-                <div className="flex justify-between">
-                  <span>{opt.duration / 60} minute{opt.duration > 60 ? 's' : ''}</span>
-                  <span className="text-jb-accent-green">{formatPrice(opt.price)}</span>
-                </div>
+                <div className="font-bold">After current song</div>
+                <div className="text-xs opacity-70">Cheaper</div>
               </button>
-            ))}
+              <button
+                onClick={() => setSilenceMode('immediate')}
+                className={`p-3 rounded-lg border text-sm transition-all ${
+                  silenceMode === 'immediate'
+                    ? 'border-jb-highlight-pink bg-jb-highlight-pink/10 text-jb-text-primary'
+                    : 'border-white/10 text-jb-text-secondary hover:border-white/20'
+                }`}
+              >
+                <div className="font-bold">Right now</div>
+                <div className="text-xs opacity-70">Stops current song</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Duration */}
+          <p className="text-jb-text-secondary text-sm">Choose how long to silence:</p>
+          <div className="space-y-2">
+            {config?.silence.options.map((opt) => {
+              const multiplier = silenceMode === 'immediate' ? ((config.silence as any).immediateMultiplier || 2.5) : 1;
+              const finalPrice = Math.round(opt.price * multiplier * 100) / 100;
+              return (
+                <button
+                  key={opt.duration}
+                  onClick={() => setSelectedDuration(opt.duration)}
+                  className={`w-full p-3 rounded-lg border transition-all ${
+                    selectedDuration === opt.duration
+                      ? 'border-jb-accent-green bg-jb-accent-green/10 text-jb-text-primary'
+                      : 'border-white/10 text-jb-text-secondary hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex justify-between">
+                    <span>{opt.duration / 60} minute{opt.duration > 60 ? 's' : ''}</span>
+                    <span className="text-jb-accent-green">{formatPrice(finalPrice)}</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
           <Button
             variant="primary"
@@ -260,14 +295,18 @@ export const SpecialEventsPage: React.FC = () => {
             loading={isLoading}
             onClick={() => {
               if (!machineId) return;
-              const opt = config?.silence.options.find((o) => o.duration === selectedDuration);
               handlePurchase(
-                () => purchaseSilence(machineId, selectedDuration),
+                () => purchaseSilence(machineId, selectedDuration, silenceMode),
                 `Silence activated for ${selectedDuration / 60} minute${selectedDuration > 60 ? 's' : ''}!`
               );
             }}
           >
-            Buy Silence — {formatPrice(config?.silence.options.find((o) => o.duration === selectedDuration)?.price ?? 0)}
+            {(() => {
+              const opt = config?.silence.options.find((o) => o.duration === selectedDuration);
+              const multiplier = silenceMode === 'immediate' ? ((config?.silence as any)?.immediateMultiplier || 2.5) : 1;
+              const finalPrice = opt ? Math.round(opt.price * multiplier * 100) / 100 : 0;
+              return `Buy Silence — ${formatPrice(finalPrice)}`;
+            })()}
           </Button>
         </div>
       </Modal>
