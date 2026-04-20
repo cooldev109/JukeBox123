@@ -88,6 +88,13 @@ const birthdaySchema = z.object({
 // ============================================
 // Helper: Get event config for a machine's venue
 // ============================================
+/**
+ * Get default event config (used by admin to know what fields exist)
+ */
+export function getDefaultEventConfig() {
+  return DEFAULT_EVENT_CONFIG;
+}
+
 async function getEventConfig(machineId: string) {
   const machine = await prisma.machine.findUnique({
     where: { id: machineId },
@@ -171,6 +178,120 @@ eventRouter.get('/config', requireAuth, async (req: Request, res: Response, next
       success: true,
       data: { events: config },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// 1b. GET /events/config/global — Get global event config (admin)
+// ============================================
+eventRouter.get('/config/global', requireAuth, requireRole('ADMIN'), async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const globalConfig = await prisma.globalConfig.findUnique({
+      where: { key: 'specialEvents' },
+    });
+    const globalEvents = (globalConfig?.value || {}) as Record<string, unknown>;
+
+    // Merge with defaults so admin sees all fields
+    const merged = JSON.parse(JSON.stringify(DEFAULT_EVENT_CONFIG)) as Record<string, any>;
+    for (const key of Object.keys(merged)) {
+      if (globalEvents[key]) {
+        merged[key] = { ...merged[key], ...(globalEvents[key] as any) };
+      }
+    }
+
+    res.json({ success: true, data: { events: merged } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// 1c. PUT /events/config/global — Update global event config (admin)
+// ============================================
+eventRouter.put('/config/global', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const events = req.body.events;
+    if (!events || typeof events !== 'object') {
+      throw new AppError('events object is required', 400);
+    }
+
+    await prisma.globalConfig.upsert({
+      where: { key: 'specialEvents' },
+      update: { value: events as Prisma.InputJsonValue },
+      create: { key: 'specialEvents', value: events as Prisma.InputJsonValue },
+    });
+
+    res.json({ success: true, data: { events } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// 1d. GET /events/config/venue/:venueId — Get venue event config (admin/owner)
+// ============================================
+eventRouter.get('/config/venue/:venueId', requireAuth, requireRole('ADMIN', 'BAR_OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const venueId = req.params.venueId as string;
+    const venue = await prisma.venue.findUnique({
+      where: { id: venueId },
+      select: { id: true, ownerId: true, settings: true },
+    });
+    if (!venue) throw new AppError('Venue not found', 404);
+
+    if (req.user!.role === 'BAR_OWNER' && venue.ownerId !== req.user!.userId) {
+      throw new AppError('You can only view your own venue config', 403);
+    }
+
+    const venueSettings = (venue.settings || {}) as Record<string, unknown>;
+    const venueEvents = (venueSettings.specialEvents || {}) as Record<string, unknown>;
+
+    // Show defaults so admin sees all fields, with venue overrides applied
+    const merged = JSON.parse(JSON.stringify(DEFAULT_EVENT_CONFIG)) as Record<string, any>;
+    for (const key of Object.keys(merged)) {
+      if (venueEvents[key]) {
+        merged[key] = { ...merged[key], ...(venueEvents[key] as any) };
+      }
+    }
+
+    res.json({ success: true, data: { events: merged, venueOverrides: venueEvents } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
+// 1e. PUT /events/config/venue/:venueId — Update venue event config (admin/owner)
+// ============================================
+eventRouter.put('/config/venue/:venueId', requireAuth, requireRole('ADMIN', 'BAR_OWNER'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const venueId = req.params.venueId as string;
+    const events = req.body.events;
+    if (!events || typeof events !== 'object') {
+      throw new AppError('events object is required', 400);
+    }
+
+    const venue = await prisma.venue.findUnique({
+      where: { id: venueId },
+      select: { id: true, ownerId: true, settings: true },
+    });
+    if (!venue) throw new AppError('Venue not found', 404);
+
+    if (req.user!.role === 'BAR_OWNER' && venue.ownerId !== req.user!.userId) {
+      throw new AppError('You can only edit your own venue config', 403);
+    }
+
+    const existingSettings = (venue.settings || {}) as Record<string, unknown>;
+    const updatedSettings = { ...existingSettings, specialEvents: events };
+
+    await prisma.venue.update({
+      where: { id: venueId },
+      data: { settings: updatedSettings as Prisma.InputJsonValue },
+    });
+
+    res.json({ success: true, data: { events } });
   } catch (error) {
     next(error);
   }

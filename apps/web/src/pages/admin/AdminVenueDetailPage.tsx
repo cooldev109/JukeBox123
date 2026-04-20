@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Skeleton, Button, Input } from '@jukebox/ui';
 import { api } from '../../lib/api';
+import { EventConfigEditor } from '../../components/EventConfigEditor';
 
 const statusColor = (s: string) => {
   if (s === 'ONLINE' || s === 'ACTIVE') return 'text-jb-accent-green bg-jb-accent-green/10 border-jb-accent-green/30';
@@ -739,6 +740,12 @@ export const AdminVenueDetailPage: React.FC = () => {
                 {pixSaved ? 'Saved!' : 'Save Pix Key'}
               </Button>
             </div>
+          </Card>
+
+          {/* Special Events Configuration */}
+          <Card className="p-4">
+            <h3 className="text-jb-text-primary font-semibold mb-3">Special Events Pricing & Duration</h3>
+            <EventConfigEditor venueId={id} />
           </Card>
 
           {/* Machines */}

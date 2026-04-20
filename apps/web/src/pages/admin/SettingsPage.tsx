@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Input } from '@jukebox/ui';
 import { api } from '../../lib/api';
+import { EventConfigEditor } from '../../components/EventConfigEditor';
 
 interface DefaultPricing {
   songPrice: number;
@@ -299,6 +300,14 @@ export const SettingsPage: React.FC = () => {
             {splitSaved ? 'Saved!' : 'Save Commission Split'}
           </Button>
         </div>
+      </Card>
+
+      {/* Special Events Config */}
+      <Card className="p-6 max-w-3xl mt-8" hoverable={false}>
+        <h3 className="text-lg font-bold text-[#F5F5F5] mb-4">
+          Special Events (Global Defaults)
+        </h3>
+        <EventConfigEditor />
       </Card>
     </div>
   );
