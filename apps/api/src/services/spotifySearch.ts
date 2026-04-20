@@ -71,8 +71,8 @@ async function getAccessToken(): Promise<string | null> {
 function cleanTitle(raw: string): string {
   let title = raw;
   // Remove parenthesized/bracketed suffixes like (feat. X), (Remastered 2023), [Deluxe Edition]
-  title = title.replace(/\s*[\(\[]\s*(?:feat\.?|ft\.?)\s+[^\)\]]+[\)\]]/gi, '');
-  title = title.replace(/\s*[\(\[]\s*(?:Remaster(?:ed)?|Deluxe|Bonus|Anniversary|Edition|Version|Mix|Remix|Live|Demo|Single|Radio Edit|Original)[^\)\]]*[\)\]]/gi, '');
+  title = title.replace(/\s*[([]\s*(?:feat\.?|ft\.?)\s+[^)\]]+[)\]]/gi, '');
+  title = title.replace(/\s*[([]\s*(?:Remaster(?:ed)?|Deluxe|Bonus|Anniversary|Edition|Version|Mix|Remix|Live|Demo|Single|Radio Edit|Original)[^)\]]*[)\]]/gi, '');
   // Remove inline "feat." / "ft." without parens
   title = title.replace(/\s*[-–—]\s*(?:feat\.?|ft\.?)\s+.+$/i, '');
   return title.trim();

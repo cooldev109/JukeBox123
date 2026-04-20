@@ -351,7 +351,7 @@ const UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'music');
  */
 function cleanYouTubeTitle(title: string): string {
   return title
-    .replace(/\s*[\(\[]\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics|Lyric Video|Visualizer|MV|M\/V|HD|HQ|4K|Live)\s*[\)\]]/gi, '')
+    .replace(/\s*[([]\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics|Lyric Video|Visualizer|MV|M\/V|HD|HQ|4K|Live)\s*[)\]]/gi, '')
     .replace(/\s*-\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics|Lyric Video|Visualizer|MV|M\/V)\s*$/gi, '')
     .replace(/\s*\|\s*(Official\s*)?(Music\s*)?(Video|Audio|Lyrics)\s*$/gi, '')
     .replace(/\s*ft\.?\s+.*$/i, (match) => match) // keep featuring info

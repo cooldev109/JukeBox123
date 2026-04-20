@@ -35,6 +35,7 @@ const DEFAULT_EVENT_CONFIG = {
     requiresApproval: true,
   },
   photo: { enabled: true, price: 5.0, requiresApproval: true, displayDuration: 180, displayMode: 'corner' as 'corner' | 'fullscreen' },
+  video: { enabled: true, price: 8.0, requiresApproval: true, displayDuration: 30, displayMode: 'corner' as 'corner' | 'fullscreen', maxDuration: 20 },
   reaction: {
     enabled: true,
     price: 1.0,
@@ -71,6 +72,12 @@ const voiceMessageSchema = z.object({
 const photoSchema = z.object({
   machineId: z.string().uuid(),
   photoUrl: z.string().min(1),
+});
+
+const videoSchema = z.object({
+  machineId: z.string().uuid(),
+  videoUrl: z.string().min(1),
+  duration: z.number().min(1).max(60).optional(),
 });
 
 const reactionSchema = z.object({
@@ -640,6 +647,78 @@ eventRouter.post(
 );
 
 // ============================================
+// 6b. POST /events/video
+// ============================================
+eventRouter.post(
+  '/video',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = videoSchema.parse(req.body);
+      const userId = req.user!.userId;
+
+      const { config } = await getEventConfig(data.machineId);
+      const videoConfig = (config as any).video;
+      if (!videoConfig?.enabled) throw new AppError('Video feature is not enabled at this venue', 400);
+
+      const result = await prisma.$transaction(async (tx) => {
+        const transaction = await chargeWallet(tx, userId, videoConfig.price, 'VIDEO', data.machineId);
+
+        const event = await tx.specialEvent.create({
+          data: {
+            machineId: data.machineId,
+            userId,
+            type: 'VIDEO',
+            content: data.videoUrl,
+            duration: data.duration || 10,
+            amount: videoConfig.price,
+            status: videoConfig.requiresApproval ? 'PENDING_APPROVAL' : 'APPROVED',
+          },
+        });
+
+        return { transaction, event };
+      });
+
+      const io = getIO();
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+      const machine = await prisma.machine.findUnique({
+        where: { id: data.machineId },
+        select: { venueId: true },
+      });
+
+      if (videoConfig.requiresApproval && machine) {
+        io.to(`venue:${machine.venueId}`).emit('event:pendingApproval', {
+          eventId: result.event.id,
+          type: 'VIDEO',
+          userName: user?.name,
+        });
+      } else {
+        // Auto-approve: emit directly to TV
+        io.to(`machine:${data.machineId}`).emit('event:video', {
+          eventId: result.event.id,
+          videoUrl: data.videoUrl,
+          userName: user?.name,
+          duration: videoConfig.displayDuration || 30,
+          mode: videoConfig.displayMode || 'corner',
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        data: {
+          eventId: result.event.id,
+          transactionId: result.transaction.id,
+          message: videoConfig.requiresApproval ? 'Awaiting bar owner approval' : 'Video sent!',
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) return next(new AppError(error.errors[0].message, 400));
+      next(error);
+    }
+  },
+);
+
+// ============================================
 // 7. POST /events/reaction
 // ============================================
 eventRouter.post(
@@ -859,6 +938,15 @@ eventRouter.post(
           userName: event.user.name,
           duration: photoConfig?.displayDuration || 180,
           mode: photoConfig?.displayMode || 'corner',
+        });
+      } else if (event.type === 'VIDEO') {
+        const videoConfig = await getEventConfig(event.machineId).then(r => (r.config as any).video);
+        io.to(`machine:${event.machineId}`).emit('event:video', {
+          eventId: event.id,
+          videoUrl: event.content,
+          userName: event.user.name,
+          duration: videoConfig?.displayDuration || 30,
+          mode: videoConfig?.displayMode || 'corner',
         });
       }
 

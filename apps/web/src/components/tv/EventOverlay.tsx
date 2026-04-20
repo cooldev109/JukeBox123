@@ -31,6 +31,13 @@ interface PhotoEvent {
   userName?: string;
 }
 
+interface VideoEvent {
+  type: 'video';
+  videoUrl: string;
+  userName?: string;
+  duration?: number;
+}
+
 interface ReactionEvent {
   type: 'reaction';
   reactionType: string;
@@ -45,7 +52,7 @@ interface BirthdayEvent {
   userName?: string;
 }
 
-type SpecialEvent = SilenceEvent | TextMessageEvent | VoiceMessageEvent | PhotoEvent | ReactionEvent | BirthdayEvent;
+type SpecialEvent = SilenceEvent | TextMessageEvent | VoiceMessageEvent | PhotoEvent | VideoEvent | ReactionEvent | BirthdayEvent;
 
 interface EventOverlayProps {
   onMuteAudio?: () => void;
@@ -186,6 +193,10 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
       case 'photo':
         duration = ((activeEvent as any).duration || 180) * 1000;
         break;
+      case 'video':
+        duration = ((activeEvent as VideoEvent).duration || 20) * 1000;
+        onMuteAudio?.();
+        break;
       case 'reaction':
         duration = 4000;
         break;
@@ -196,7 +207,7 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
     }
 
     timerRef.current = setTimeout(() => {
-      if (activeEvent.type === 'silence' || activeEvent.type === 'voiceMessage') {
+      if (activeEvent.type === 'silence' || activeEvent.type === 'voiceMessage' || activeEvent.type === 'video') {
         onUnmuteAudio?.();
       }
       setActiveEvent(null);
@@ -394,6 +405,77 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
                   src={(activeEvent as PhotoEvent).photoUrl}
                   alt="User photo"
                   className="max-w-lg max-h-[60vh] rounded-xl object-contain bg-black"
+                />
+              </motion.div>
+              {activeEvent.userName && (
+                <p className="text-center text-jb-text-secondary text-xl mt-4">
+                  Shared by {activeEvent.userName}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        );
+      })()}
+
+      {/* VIDEO OVERLAY */}
+      {activeEvent?.type === 'video' && (() => {
+        const mode = (activeEvent as any).mode || 'fullscreen';
+        if (mode === 'corner') {
+          return (
+            <motion.div
+              key="video-corner"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-6 right-6 z-40"
+            >
+              <motion.div
+                className="p-1 rounded-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #00FF00, #9B00FF, #FF0080, #00FF00)',
+                  backgroundSize: '300% 300%',
+                }}
+                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <video
+                  src={(activeEvent as VideoEvent).videoUrl}
+                  autoPlay
+                  playsInline
+                  className="w-64 h-48 rounded-lg object-cover bg-black"
+                />
+              </motion.div>
+              {activeEvent.userName && (
+                <p className="text-center text-jb-text-secondary text-xs mt-2 bg-black/60 rounded px-2 py-1">
+                  {activeEvent.userName}
+                </p>
+              )}
+            </motion.div>
+          );
+        }
+        return (
+          <motion.div
+            key="video-full"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          >
+            <div className="relative">
+              <motion.div
+                className="p-2 rounded-2xl"
+                style={{
+                  background: 'linear-gradient(135deg, #00FF00, #9B00FF, #FF0080, #00FF00)',
+                  backgroundSize: '300% 300%',
+                }}
+                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <video
+                  src={(activeEvent as VideoEvent).videoUrl}
+                  autoPlay
+                  playsInline
+                  className="max-w-2xl max-h-[70vh] rounded-xl object-contain bg-black"
                 />
               </motion.div>
               {activeEvent.userName && (

@@ -272,6 +272,7 @@ enum TransactionType {
   VOICE_MSG
   REACTION
   PHOTO
+  VIDEO
   BIRTHDAY_PACK
 }
 
@@ -498,6 +499,7 @@ enum SpecialEventType {
   VOICE_MESSAGE
   TEXT_MESSAGE
   PHOTO
+  VIDEO
   REACTION
   BIRTHDAY
 }

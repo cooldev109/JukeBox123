@@ -19,11 +19,11 @@ const REACTION_EMOJIS: Record<string, string> = {
   FIRE: '\uD83D\uDD25',
 };
 
-type ModalType = 'silence' | 'textMessage' | 'voiceMessage' | 'photo' | 'reaction' | 'birthday' | 'skipQueue' | null;
+type ModalType = 'silence' | 'textMessage' | 'voiceMessage' | 'photo' | 'video' | 'reaction' | 'birthday' | 'skipQueue' | null;
 
 export const SpecialEventsPage: React.FC = () => {
   const { t } = useI18n();
-  const { config, fetchConfig, isLoading, error, purchaseSilence, purchaseTextMessage, purchaseVoiceMessage, purchasePhoto, purchaseReaction, purchaseBirthday, purchaseSkipQueue } = useEventsStore();
+  const { config, fetchConfig, isLoading, error, purchaseSilence, purchaseTextMessage, purchaseVoiceMessage, purchasePhoto, purchaseVideo, purchaseReaction, purchaseBirthday, purchaseSkipQueue } = useEventsStore();
   const { machineId, queue } = useQueueStore();
   const { balance, fetchWallet } = useWalletStore();
 
@@ -158,6 +158,14 @@ export const SpecialEventsPage: React.FC = () => {
       price: config?.photo.price ?? 5,
       enabled: config?.photo.enabled ?? false,
       color: 'from-amber-500 to-yellow-500',
+    },
+    {
+      id: 'video' as ModalType,
+      name: 'Video on TV',
+      icon: '\uD83C\uDFA5',
+      price: (config as any)?.video?.price ?? 8,
+      enabled: (config as any)?.video?.enabled ?? false,
+      color: 'from-red-500 to-pink-500',
     },
   ];
 
@@ -507,6 +515,26 @@ export const SpecialEventsPage: React.FC = () => {
             handlePurchase(
               () => purchasePhoto(machineId!, url),
               'Photo sent! Waiting for bar owner approval.'
+            );
+          }}
+          onCancel={() => setActiveModal(null)}
+        />
+      </Modal>
+
+      {/* ============================================ */}
+      {/* VIDEO MODAL */}
+      {/* ============================================ */}
+      <Modal isOpen={activeModal === 'video'} onClose={() => setActiveModal(null)} title="Video on TV">
+        <p className="text-jb-text-secondary text-sm mb-4">
+          Share a short video on the TV screen. Max 20 seconds. Requires bar owner approval.
+        </p>
+        <MediaCapture
+          type="video"
+          maxDuration={20}
+          onCapture={(url, duration) => {
+            handlePurchase(
+              () => purchaseVideo(machineId!, url, duration),
+              'Video sent! Waiting for bar owner approval.'
             );
           }}
           onCancel={() => setActiveModal(null)}

@@ -8,6 +8,7 @@ interface EventConfig {
   textMessage: { enabled: boolean; price: number; maxLength: number; displayDuration: number };
   voiceMessage: { enabled: boolean; options: { duration: number; price: number }[]; requiresApproval: boolean };
   photo: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number; displayMode?: 'corner' | 'fullscreen' };
+  video: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number; displayMode?: 'corner' | 'fullscreen'; maxDuration: number };
   reaction: { enabled: boolean; price: number; types: string[] };
   birthday: { enabled: boolean; price: number; displayDuration?: number; displayMode?: 'corner' | 'fullscreen' };
 }
@@ -271,6 +272,61 @@ export const EventConfigEditor: React.FC<EventConfigEditorProps> = ({ venueId })
           >
             <option value="corner">Corner (small, doesn't block music)</option>
             <option value="fullscreen">Fullscreen (large, blocks video)</option>
+          </select>
+        </div>
+      </Card>
+
+      {/* Video */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-jb-text-primary font-bold">Video on TV</h4>
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={config.video?.enabled ?? false}
+              onChange={(e) => setConfig({ ...config, video: { ...(config.video || { price: 8, requiresApproval: true, displayDuration: 30, displayMode: 'corner', maxDuration: 20 }), enabled: e.target.checked } })}
+            />
+            Enabled
+          </label>
+        </div>
+        <label className="flex items-center gap-2 text-xs mb-2">
+          <input
+            type="checkbox"
+            checked={config.video?.requiresApproval ?? true}
+            onChange={(e) => setConfig({ ...config, video: { ...config.video, requiresApproval: e.target.checked } })}
+          />
+          Requires bar owner approval
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Price (R$)"
+            type="number"
+            step="0.01"
+            value={String(config.video?.price ?? 8)}
+            onChange={(e) => setConfig({ ...config, video: { ...config.video, price: parseFloat(e.target.value) || 0 } })}
+          />
+          <Input
+            label="Display Duration (seconds)"
+            type="number"
+            value={String(config.video?.displayDuration ?? 30)}
+            onChange={(e) => setConfig({ ...config, video: { ...config.video, displayDuration: parseInt(e.target.value) || 0 } })}
+          />
+          <Input
+            label="Max Upload Duration (seconds)"
+            type="number"
+            value={String(config.video?.maxDuration ?? 20)}
+            onChange={(e) => setConfig({ ...config, video: { ...config.video, maxDuration: parseInt(e.target.value) || 0 } })}
+          />
+        </div>
+        <div className="mt-3">
+          <label className="text-jb-text-secondary text-sm mb-1 block">Display Mode</label>
+          <select
+            value={config.video?.displayMode || 'corner'}
+            onChange={(e) => setConfig({ ...config, video: { ...config.video, displayMode: e.target.value as 'corner' | 'fullscreen' } })}
+            className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg p-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+          >
+            <option value="corner">Corner (small, doesn't block music)</option>
+            <option value="fullscreen">Fullscreen (large, mutes music while playing)</option>
           </select>
         </div>
       </Card>

@@ -46,6 +46,7 @@ interface EventsState {
   purchaseTextMessage: (machineId: string, message: string) => Promise<{ eventId: string; transactionId: string }>;
   purchaseVoiceMessage: (machineId: string, audioUrl: string, duration: number) => Promise<{ eventId: string; transactionId: string }>;
   purchasePhoto: (machineId: string, photoUrl: string) => Promise<{ eventId: string; transactionId: string }>;
+  purchaseVideo: (machineId: string, videoUrl: string, duration?: number) => Promise<{ eventId: string; transactionId: string }>;
   purchaseReaction: (machineId: string, reactionType: string) => Promise<{ eventId: string; transactionId: string }>;
   purchaseBirthday: (machineId: string, birthdayName: string, message?: string, songId?: string) => Promise<{ eventId: string; transactionId: string }>;
   uploadMedia: (file: string, type: 'audio' | 'image') => Promise<string>;
@@ -121,6 +122,20 @@ export const useEventsStore = create<EventsState>((set) => ({
       return data.data;
     } catch (err: any) {
       const msg = err.response?.data?.error || 'Failed to send voice message';
+      set({ error: msg });
+      throw new Error(msg, { cause: err });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  purchaseVideo: async (machineId, videoUrl, duration) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.post('/events/video', { machineId, videoUrl, duration });
+      return data.data;
+    } catch (err: any) {
+      const msg = err.response?.data?.error || 'Failed to send video';
       set({ error: msg });
       throw new Error(msg, { cause: err });
     } finally {
