@@ -7,9 +7,9 @@ interface EventConfig {
   silence: { enabled: boolean; options: { duration: number; price: number }[]; immediateMultiplier?: number };
   textMessage: { enabled: boolean; price: number; maxLength: number; displayDuration: number };
   voiceMessage: { enabled: boolean; options: { duration: number; price: number }[]; requiresApproval: boolean };
-  photo: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number };
+  photo: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number; displayMode?: 'corner' | 'fullscreen' };
   reaction: { enabled: boolean; price: number; types: string[] };
-  birthday: { enabled: boolean; price: number };
+  birthday: { enabled: boolean; price: number; displayDuration?: number; displayMode?: 'corner' | 'fullscreen' };
 }
 
 interface EventConfigEditorProps {
@@ -262,6 +262,17 @@ export const EventConfigEditor: React.FC<EventConfigEditorProps> = ({ venueId })
             onChange={(e) => setConfig({ ...config, photo: { ...config.photo, displayDuration: parseInt(e.target.value) || 0 } })}
           />
         </div>
+        <div className="mt-3">
+          <label className="text-jb-text-secondary text-sm mb-1 block">Display Mode</label>
+          <select
+            value={config.photo.displayMode || 'corner'}
+            onChange={(e) => setConfig({ ...config, photo: { ...config.photo, displayMode: e.target.value as 'corner' | 'fullscreen' } })}
+            className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg p-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+          >
+            <option value="corner">Corner (small, doesn't block music)</option>
+            <option value="fullscreen">Fullscreen (large, blocks video)</option>
+          </select>
+        </div>
       </Card>
 
       {/* Reaction */}
@@ -299,13 +310,35 @@ export const EventConfigEditor: React.FC<EventConfigEditorProps> = ({ venueId })
             Enabled
           </label>
         </div>
-        <Input
-          label="Price (R$)"
-          type="number"
-          step="0.01"
-          value={String(config.birthday.price)}
-          onChange={(e) => setConfig({ ...config, birthday: { ...config.birthday, price: parseFloat(e.target.value) || 0 } })}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Price (R$)"
+            type="number"
+            step="0.01"
+            value={String(config.birthday.price)}
+            onChange={(e) => setConfig({ ...config, birthday: { ...config.birthday, price: parseFloat(e.target.value) || 0 } })}
+          />
+          <Input
+            label="Display Duration (seconds)"
+            type="number"
+            value={String(config.birthday.displayDuration ?? 86400)}
+            onChange={(e) => setConfig({ ...config, birthday: { ...config.birthday, displayDuration: parseInt(e.target.value) || 0 } })}
+          />
+        </div>
+        <div className="mt-3">
+          <label className="text-jb-text-secondary text-sm mb-1 block">Display Mode</label>
+          <select
+            value={config.birthday.displayMode || 'corner'}
+            onChange={(e) => setConfig({ ...config, birthday: { ...config.birthday, displayMode: e.target.value as 'corner' | 'fullscreen' } })}
+            className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg p-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+          >
+            <option value="corner">Corner banner (persistent, music keeps playing)</option>
+            <option value="fullscreen">Fullscreen celebration (with confetti, takes over screen)</option>
+          </select>
+          <p className="text-jb-text-secondary text-xs mt-1">
+            Tip: Corner mode with 24h duration = 86400s, fullscreen mode = ~15s
+          </p>
+        </div>
       </Card>
 
       {error && <p className="text-jb-highlight-pink text-sm">{error}</p>}

@@ -190,7 +190,8 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
         duration = 4000;
         break;
       case 'birthday':
-        duration = 15000;
+        // Use duration from event (default 86400s = 24h for corner, 15s for fullscreen)
+        duration = ((activeEvent as any).duration || ((activeEvent as any).mode === 'fullscreen' ? 15 : 86400)) * 1000;
         break;
     }
 
@@ -336,39 +337,74 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
       )}
 
       {/* PHOTO OVERLAY */}
-      {activeEvent?.type === 'photo' && (
-        <motion.div
-          key="photo"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-        >
-          <div className="relative">
-            {/* Neon frame */}
+      {activeEvent?.type === 'photo' && (() => {
+        const mode = (activeEvent as any).mode || 'corner';
+        if (mode === 'corner') {
+          return (
             <motion.div
-              className="p-2 rounded-2xl"
-              style={{
-                background: 'linear-gradient(135deg, #00FF00, #9B00FF, #FF0080, #00FF00)',
-                backgroundSize: '300% 300%',
-              }}
-              animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-              transition={{ duration: 3, repeat: Infinity }}
+              key="photo-corner"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-6 left-6 z-40"
             >
-              <img
-                src={(activeEvent as PhotoEvent).photoUrl}
-                alt="User photo"
-                className="max-w-lg max-h-[60vh] rounded-xl object-contain bg-black"
-              />
+              <motion.div
+                className="p-1 rounded-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #00FF00, #9B00FF, #FF0080, #00FF00)',
+                  backgroundSize: '300% 300%',
+                }}
+                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <img
+                  src={(activeEvent as PhotoEvent).photoUrl}
+                  alt="User photo"
+                  className="w-48 h-48 rounded-lg object-cover bg-black"
+                />
+              </motion.div>
+              {activeEvent.userName && (
+                <p className="text-center text-jb-text-secondary text-xs mt-2 bg-black/60 rounded px-2 py-1">
+                  {activeEvent.userName}
+                </p>
+              )}
             </motion.div>
-            {activeEvent.userName && (
-              <p className="text-center text-jb-text-secondary text-xl mt-4">
-                Shared by {activeEvent.userName}
-              </p>
-            )}
-          </div>
-        </motion.div>
-      )}
+          );
+        }
+        // Fullscreen mode (original)
+        return (
+          <motion.div
+            key="photo-full"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <div className="relative">
+              <motion.div
+                className="p-2 rounded-2xl"
+                style={{
+                  background: 'linear-gradient(135deg, #00FF00, #9B00FF, #FF0080, #00FF00)',
+                  backgroundSize: '300% 300%',
+                }}
+                animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+                transition={{ duration: 3, repeat: Infinity }}
+              >
+                <img
+                  src={(activeEvent as PhotoEvent).photoUrl}
+                  alt="User photo"
+                  className="max-w-lg max-h-[60vh] rounded-xl object-contain bg-black"
+                />
+              </motion.div>
+              {activeEvent.userName && (
+                <p className="text-center text-jb-text-secondary text-xl mt-4">
+                  Shared by {activeEvent.userName}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        );
+      })()}
 
       {/* REACTION OVERLAY */}
       {activeEvent?.type === 'reaction' && (
@@ -376,48 +412,86 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
       )}
 
       {/* BIRTHDAY OVERLAY */}
-      {activeEvent?.type === 'birthday' && (
-        <motion.div
-          key="birthday"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
-        >
-          <Confetti />
-          <div className="text-center relative z-10">
+      {activeEvent?.type === 'birthday' && (() => {
+        const mode = (activeEvent as any).mode || 'corner';
+        if (mode === 'corner') {
+          return (
             <motion.div
-              className="text-8xl mb-6"
-              animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 1, repeat: Infinity }}
+              key="birthday-corner"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="fixed top-6 right-6 z-40 max-w-xs"
             >
-              {'\uD83C\uDF82'}
+              <div className="bg-gradient-to-r from-jb-highlight-pink/90 to-jb-accent-purple/90 backdrop-blur-xl rounded-2xl p-4 border border-white/20 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    className="text-4xl"
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    {'\uD83C\uDF82'}
+                  </motion.div>
+                  <div className="min-w-0">
+                    <p className="text-white text-xs font-bold uppercase tracking-wider">Happy Birthday</p>
+                    <p className="text-jb-accent-green text-lg font-bold truncate">
+                      {(activeEvent as BirthdayEvent).name}!
+                    </p>
+                    {(activeEvent as BirthdayEvent).message && (
+                      <p className="text-white/80 text-xs truncate mt-0.5">
+                        {(activeEvent as BirthdayEvent).message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </motion.div>
-            <motion.h2
-              className="text-6xl font-bold mb-6"
-              style={{ textShadow: '0 0 40px #FF0080, 0 0 80px #9B00FF' }}
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <span className="text-jb-highlight-pink">Happy Birthday</span>
-              <br />
-              <span className="text-jb-accent-green neon-text-green">
-                {(activeEvent as BirthdayEvent).name}!
-              </span>
-            </motion.h2>
-            {(activeEvent as BirthdayEvent).message && (
-              <p className="text-2xl text-white/80 mt-4 max-w-xl">
-                {(activeEvent as BirthdayEvent).message}
-              </p>
-            )}
-            {(activeEvent as BirthdayEvent).songTitle && (
-              <p className="text-xl text-jb-accent-purple mt-4">
-                Now playing: {(activeEvent as BirthdayEvent).songTitle}
-              </p>
-            )}
-          </div>
-        </motion.div>
-      )}
+          );
+        }
+        // Fullscreen mode (original with confetti)
+        return (
+          <motion.div
+            key="birthday-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
+          >
+            <Confetti />
+            <div className="text-center relative z-10">
+              <motion.div
+                className="text-8xl mb-6"
+                animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              >
+                {'\uD83C\uDF82'}
+              </motion.div>
+              <motion.h2
+                className="text-6xl font-bold mb-6"
+                style={{ textShadow: '0 0 40px #FF0080, 0 0 80px #9B00FF' }}
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <span className="text-jb-highlight-pink">Happy Birthday</span>
+                <br />
+                <span className="text-jb-accent-green neon-text-green">
+                  {(activeEvent as BirthdayEvent).name}!
+                </span>
+              </motion.h2>
+              {(activeEvent as BirthdayEvent).message && (
+                <p className="text-2xl text-white/80 mt-4 max-w-xl">
+                  {(activeEvent as BirthdayEvent).message}
+                </p>
+              )}
+              {(activeEvent as BirthdayEvent).songTitle && (
+                <p className="text-xl text-jb-accent-purple mt-4">
+                  Now playing: {(activeEvent as BirthdayEvent).songTitle}
+                </p>
+              )}
+            </div>
+          </motion.div>
+        );
+      })()}
     </AnimatePresence>
   );
 };

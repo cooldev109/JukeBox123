@@ -34,13 +34,13 @@ const DEFAULT_EVENT_CONFIG = {
     ],
     requiresApproval: true,
   },
-  photo: { enabled: true, price: 5.0, requiresApproval: true, displayDuration: 180 },
+  photo: { enabled: true, price: 5.0, requiresApproval: true, displayDuration: 180, displayMode: 'corner' as 'corner' | 'fullscreen' },
   reaction: {
     enabled: true,
     price: 1.0,
     types: ['APPLAUSE', 'BOO', 'LAUGH', 'HEART', 'FIRE'],
   },
-  birthday: { enabled: true, price: 25.0 },
+  birthday: { enabled: true, price: 25.0, displayDuration: 86400, displayMode: 'corner' as 'corner' | 'fullscreen' },
 };
 
 // ============================================
@@ -771,12 +771,15 @@ eventRouter.post(
         songTitle = song?.title;
       }
 
+      const birthdayConfig = config.birthday as any;
       io.to(`machine:${data.machineId}`).emit('event:birthday', {
         eventId: result.event.id,
         name: data.birthdayName,
         message: data.message,
         songTitle,
         userName: user?.name,
+        duration: birthdayConfig?.displayDuration || 86400,
+        mode: birthdayConfig?.displayMode || 'corner',
       });
 
       // Also emit queue update if song was added
@@ -855,6 +858,7 @@ eventRouter.post(
           photoUrl: event.content,
           userName: event.user.name,
           duration: photoConfig?.displayDuration || 180,
+          mode: photoConfig?.displayMode || 'corner',
         });
       }
 
