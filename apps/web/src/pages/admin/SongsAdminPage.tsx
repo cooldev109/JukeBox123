@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { SearchBar, SongCard, Skeleton, Button, Modal, Input, Card } from '@jukebox/ui';
 import { useAdminStore } from '../../stores/adminStore';
 import { api } from '../../lib/api';
@@ -318,6 +319,11 @@ export const SongsAdminPage: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold text-jb-text-primary">Music Catalog</h2>
         <div className="flex gap-2 flex-wrap">
+          <Link to="/admin/songs/bulk-upload">
+            <Button variant="primary" size="sm">
+              {'\uD83C\uDFB5'} Bulk Upload MP3s
+            </Button>
+          </Link>
           <Button variant="secondary" size="sm" onClick={() => { setFormError(''); setShowUpload(true); }}>
             {'\uD83D\uDCE4'} Upload MP3
           </Button>

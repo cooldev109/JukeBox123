@@ -24,6 +24,7 @@ import { AdminAlertsPage } from './pages/admin/AdminAlertsPage';
 import { RevenuePage } from './pages/admin/RevenuePage';
 import { UsersPage } from './pages/admin/UsersPage';
 import { SongsAdminPage } from './pages/admin/SongsAdminPage';
+import { BulkUploadPage } from './pages/admin/BulkUploadPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 import { AdminProductsPage } from './pages/admin/AdminProductsPage';
 import { AdminRegionsPage } from './pages/admin/AdminRegionsPage';
@@ -94,6 +95,7 @@ export function App() {
         <Route path="/admin/revenue" element={<RevenuePage />} />
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/songs" element={<SongsAdminPage />} />
+        <Route path="/admin/songs/bulk-upload" element={<BulkUploadPage />} />
         <Route path="/admin/products" element={<AdminProductsPage />} />
         <Route path="/admin/regions" element={<AdminRegionsPage />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
