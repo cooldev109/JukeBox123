@@ -56,6 +56,8 @@ export const QueuePage: React.FC = () => {
 
   const np = nowPlaying?.queueItem;
   const progress = nowPlaying?.progress;
+  // "Up Next" should exclude the currently playing song (it's shown in the Now Playing section above).
+  const upcomingQueue = queue.filter((item) => item.status !== 'PLAYING' && item.id !== np?.id);
 
   return (
     <div className="min-h-screen bg-jb-bg-primary pb-24">
@@ -135,14 +137,14 @@ export const QueuePage: React.FC = () => {
         <div className="max-w-lg mx-auto">
           <h3 className="text-lg font-bold text-jb-text-primary mb-3">
             {t('up_next')}
-            {queue.length > 0 && (
+            {upcomingQueue.length > 0 && (
               <span className="text-jb-text-secondary font-normal text-sm ml-2">
-                ({queue.length} {t('songs_in_queue')})
+                ({upcomingQueue.length} {t('songs_in_queue')})
               </span>
             )}
           </h3>
 
-          {queue.length === 0 ? (
+          {upcomingQueue.length === 0 ? (
             <div className="text-center py-8 text-jb-text-secondary">
               <p className="font-bold mb-1">{t('queue_empty')}</p>
               <p className="text-sm">{t('queue_empty_desc')}</p>
@@ -150,7 +152,7 @@ export const QueuePage: React.FC = () => {
           ) : (
             <AnimatePresence mode="popLayout">
               <div className="space-y-2">
-                {queue.map((item, index) => (
+                {upcomingQueue.map((item, index) => (
                   <QueueItemComponent
                     key={item.id}
                     position={index + 1}

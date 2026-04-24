@@ -45,6 +45,7 @@ export const SpecialEventsPage: React.FC = () => {
   const [birthdayName, setBirthdayName] = useState('');
   const [birthdayMessage, setBirthdayMessage] = useState('');
   const [birthdaySongId, setBirthdaySongId] = useState<string | undefined>(undefined);
+  const [birthdaySongQuery, setBirthdaySongQuery] = useState('');
   const { songs, fetchSongs } = useSongStore();
 
   // Skip queue state
@@ -56,6 +57,15 @@ export const SpecialEventsPage: React.FC = () => {
     }
     fetchSongs();
   }, [machineId, fetchConfig, fetchSongs]);
+
+  // Re-search songs when user types in birthday song search
+  useEffect(() => {
+    if (activeModal !== 'birthday') return;
+    const id = setTimeout(() => {
+      fetchSongs({ search: birthdaySongQuery, page: 1 });
+    }, 250);
+    return () => clearTimeout(id);
+  }, [birthdaySongQuery, activeModal, fetchSongs]);
 
   const showSuccess = (msg: string) => {
     setSuccessMessage(msg);
@@ -404,25 +414,43 @@ export const SpecialEventsPage: React.FC = () => {
             className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-jb-text-primary placeholder-jb-text-secondary/50 resize-none h-20 focus:border-jb-accent-green focus:outline-none"
           />
           <div>
-            <label className="text-jb-text-secondary text-xs mb-1 block">Choose a song (optional — will be added to queue)</label>
-            <select
-              value={birthdaySongId || ''}
-              onChange={(e) => setBirthdaySongId(e.target.value || undefined)}
-              className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg p-3 text-jb-text-primary focus:border-jb-accent-green focus:outline-none"
-            >
-              <option value="">No song — just the celebration overlay</option>
-              {songs.map((s: any) => (
-                <option key={s.id} value={s.id}>{s.title} — {s.artist}</option>
-              ))}
-            </select>
+            <label className="text-jb-text-secondary text-xs mb-1 block">Choose a song to play for the birthday (required)</label>
+            <input
+              value={birthdaySongQuery}
+              onChange={(e) => {
+                setBirthdaySongQuery(e.target.value);
+                setBirthdaySongId(undefined);
+              }}
+              placeholder="Search by title or artist..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-jb-text-primary placeholder-jb-text-secondary/50 focus:border-jb-accent-green focus:outline-none mb-2"
+            />
+            <div className="max-h-48 overflow-y-auto bg-jb-bg-secondary/50 border border-white/10 rounded-lg divide-y divide-white/5">
+              {songs.length === 0 ? (
+                <p className="text-jb-text-secondary text-sm text-center py-4">No songs found</p>
+              ) : (
+                songs.map((s: any) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setBirthdaySongId(s.id)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-white/5 transition-colors ${
+                      birthdaySongId === s.id ? 'bg-jb-accent-green/20 text-jb-accent-green' : 'text-jb-text-primary'
+                    }`}
+                  >
+                    <span className="font-medium">{s.title}</span>
+                    <span className="text-jb-text-secondary"> — {s.artist}</span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
           <Button
             variant="primary"
             fullWidth
             loading={isLoading}
-            disabled={!birthdayName.trim()}
+            disabled={!birthdayName.trim() || !birthdaySongId}
             onClick={() => {
-              if (!machineId) return;
+              if (!machineId || !birthdaySongId) return;
               handlePurchase(
                 () => purchaseBirthday(machineId, birthdayName.trim(), birthdayMessage.trim() || undefined, birthdaySongId),
                 `Birthday celebration for ${birthdayName} is live!`
@@ -430,6 +458,7 @@ export const SpecialEventsPage: React.FC = () => {
               setBirthdayName('');
               setBirthdayMessage('');
               setBirthdaySongId(undefined);
+              setBirthdaySongQuery('');
             }}
           >
             Celebrate — {formatPrice(config?.birthday.price ?? 25)}

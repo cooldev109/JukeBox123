@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Skeleton, Button, Input } from '@jukebox/ui';
+import { QRCodeCanvas } from 'qrcode.react';
+import { Card, Skeleton, Button, Input, Modal } from '@jukebox/ui';
 import { api } from '../../lib/api';
 import { EventConfigEditor } from '../../components/EventConfigEditor';
 
@@ -51,6 +52,8 @@ export const AdminVenueDetailPage: React.FC = () => {
   const [data, setData] = useState<VenueAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showQR, setShowQR] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   // Commission split editing
   const [editSplit, setEditSplit] = useState(false);
@@ -291,6 +294,9 @@ export const AdminVenueDetailPage: React.FC = () => {
         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ml-auto ${statusColor(venue.status)}`}>
           {venue.status}
         </span>
+        <Button variant="secondary" size="sm" onClick={() => setShowQR(true)}>
+          QR Code
+        </Button>
       </div>
 
       {/* Machines summary */}
@@ -771,6 +777,65 @@ export const AdminVenueDetailPage: React.FC = () => {
           </Card>
         </div>
       )}
+
+      {/* QR Code Modal */}
+      <Modal isOpen={showQR} onClose={() => setShowQR(false)} title={`QR Code - ${venue.name}`}>
+        <div className="space-y-4 text-center">
+          <p className="text-jb-text-secondary text-sm">
+            Customers scan this code to open the jukebox for this venue.
+          </p>
+          <div ref={qrRef} className="bg-white p-4 rounded-xl inline-block">
+            <QRCodeCanvas
+              value={`${window.location.origin}/browse?venue=${encodeURIComponent(venue.code)}`}
+              size={260}
+              level="H"
+              marginSize={2}
+            />
+          </div>
+          <p className="text-jb-accent-green font-mono font-bold text-lg">{venue.code}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={() => {
+                const canvas = qrRef.current?.querySelector('canvas');
+                if (!canvas) return;
+                const link = document.createElement('a');
+                link.download = `jukebox-qr-${venue.code}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+              }}
+            >
+              Download PNG
+            </Button>
+            <Button
+              variant="secondary"
+              fullWidth
+              onClick={() => {
+                const canvas = qrRef.current?.querySelector('canvas');
+                if (!canvas) return;
+                const dataUrl = canvas.toDataURL('image/png');
+                const w = window.open('', '_blank');
+                if (!w) return;
+                w.document.write(
+                  `<html><head><title>JukeBox QR - ${venue.name}</title></head>` +
+                  `<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:sans-serif;">` +
+                  `<h1 style="margin-bottom:4px;">JukeBox</h1>` +
+                  `<h2 style="margin-top:0;color:#555;">${venue.name}</h2>` +
+                  `<img src="${dataUrl}" style="width:400px;height:400px;" />` +
+                  `<p style="font-size:24px;font-weight:bold;margin-top:20px;">Code: ${venue.code}</p>` +
+                  `<p style="color:#666;">Scan this QR code to play music!</p>` +
+                  `</body></html>`
+                );
+                w.document.close();
+                w.onload = () => { w.print(); w.close(); };
+              }}
+            >
+              Print
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -581,6 +581,14 @@ export const BrowsePage: React.FC = () => {
                   duration={formatDuration(song.duration)}
                   price={formatPrice(songPrice)}
                   onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate('/login?redirect=/browse');
+                      return;
+                    }
+                    if (!machineId) {
+                      setShowVenueConnect(true);
+                      return;
+                    }
                     setSelectedSong(song);
                     setPaymentStep('choose');
                     setQueueError('');
