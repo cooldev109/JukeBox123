@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QueueItemComponent, MusicVisualizer } from '@jukebox/ui';
 import { useQueueStore } from '../stores/queueStore';
 import { useI18n } from '../lib/i18n';
+import { EventOverlay } from '../components/tv/EventOverlay';
+import { getSocket } from '../lib/socket';
 
 const formatDuration = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -19,6 +21,37 @@ export const QueuePage: React.FC = () => {
       fetchQueue(machineId);
       fetchNowPlaying(machineId);
     }
+  }, [machineId]);
+
+  // Mirror the TV's special event overlays on the customer's phone.
+  // Audio handlers are no-ops because phones don't play the music — the TV does.
+  useEffect(() => {
+    if (!machineId) return;
+    const socket = getSocket();
+    const queueEvent = (event: any) => {
+      const fn = (window as any).__jb_queueEvent;
+      if (fn) fn(event);
+    };
+
+    socket.on('event:silence', (data: any) => queueEvent({ type: 'silence', ...data }));
+    socket.on('event:textMessage', (data: any) => queueEvent({ type: 'textMessage', ...data }));
+    socket.on('event:voiceMessage', (data: any) => queueEvent({ type: 'voiceMessage', ...data }));
+    socket.on('event:photo', (data: any) => queueEvent({ type: 'photo', ...data }));
+    socket.on('event:video', (data: any) => queueEvent({ type: 'video', ...data }));
+    socket.on('event:reaction', (data: any) =>
+      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName })
+    );
+    socket.on('event:birthday', (data: any) => queueEvent({ type: 'birthday', ...data }));
+
+    return () => {
+      socket.off('event:silence');
+      socket.off('event:textMessage');
+      socket.off('event:voiceMessage');
+      socket.off('event:photo');
+      socket.off('event:video');
+      socket.off('event:reaction');
+      socket.off('event:birthday');
+    };
   }, [machineId]);
 
   const np = nowPlaying?.queueItem;
@@ -133,6 +166,9 @@ export const QueuePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Shared TV overlays — every customer sees the same photo/video/reaction/birthday */}
+      <EventOverlay />
     </div>
   );
 };
