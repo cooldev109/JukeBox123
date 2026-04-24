@@ -25,8 +25,8 @@ export const TvView: React.FC<TvViewProps> = ({ onClose }) => {
   const progress = nowPlaying?.progress;
   const song = item?.song;
 
-  // Upcoming songs: everything except the currently playing one
-  const upcoming = queue.filter((q) => q.id !== item?.id).slice(0, 10);
+  // Upcoming songs: exclude the currently playing one (by status or id)
+  const upcoming = queue.filter((q) => q.status !== 'PLAYING' && q.id !== item?.id).slice(0, 10);
 
   return (
     <div className="w-full h-full bg-jb-bg-primary overflow-hidden relative">

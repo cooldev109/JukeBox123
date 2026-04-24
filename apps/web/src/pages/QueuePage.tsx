@@ -43,15 +43,15 @@ export const QueuePage: React.FC = () => {
 
   const openTvMode = () => {
     setTvMode(true);
-    // Try to enter real fullscreen on devices that support it (works great on Smart TV browsers / desktop Chrome)
-    setTimeout(() => {
-      const el = tvContainerRef.current;
-      if (el?.requestFullscreen) {
-        el.requestFullscreen().catch(() => {
-          // Fullscreen denied (iOS Safari, some in-app browsers) — the fixed-position overlay still works
-        });
-      }
-    }, 50);
+    // Fullscreen must be requested from the user gesture. Ask for fullscreen on
+    // the document element now — the TV overlay covers the viewport anyway via
+    // fixed positioning, so it still looks right even if fullscreen is denied.
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {
+        // Fullscreen denied (iOS Safari, some in-app browsers) — the fixed overlay still works
+      });
+    }
   };
 
   const closeTvMode = () => {

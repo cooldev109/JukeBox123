@@ -69,12 +69,12 @@ export const LandingPage: React.FC = () => {
       const displayName = name.trim() || email.trim().split('@')[0];
       await register({ name: displayName, email: email.trim(), password, role: signupRole });
       if (signupRole === 'CUSTOMER') {
+        // Customers need a second login pass to attach the venue+machine context.
         await login(email.trim(), password, venueCode.trim());
         navigate('/browse');
-      } else {
-        await login(email.trim(), password);
-        // Redirect handled by the role-based effect above
       }
+      // For BAR_OWNER / AFFILIATE: register already authenticated the session.
+      // The role-based useEffect above will redirect to /owner or /affiliate.
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || 'Registration failed');
     }
