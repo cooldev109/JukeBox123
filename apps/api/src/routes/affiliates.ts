@@ -215,7 +215,7 @@ affiliateRouter.get(
         data: {
           referralCode: user.referralCode,
           qrData: JSON.stringify(qrData),
-          shareUrl: `${process.env.APP_URL || 'https://solodevs.net'}/?ref=${user.referralCode}`,
+          shareUrl: `${process.env.APP_URL || 'https://jukjoy.com'}/?ref=${user.referralCode}`,
         },
       });
     } catch (error) {
