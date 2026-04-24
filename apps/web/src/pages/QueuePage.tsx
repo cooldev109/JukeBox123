@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QueueItemComponent, MusicVisualizer } from '@jukebox/ui';
 import { useQueueStore } from '../stores/queueStore';
 import { useI18n } from '../lib/i18n';
 import { EventOverlay } from '../components/tv/EventOverlay';
+import { TvView } from '../components/tv/TvView';
 import { getSocket } from '../lib/socket';
 
 interface EventHistoryItem {
@@ -36,6 +37,40 @@ export const QueuePage: React.FC = () => {
   const { t } = useI18n();
   const { queue, nowPlaying, machineId, fetchQueue, fetchNowPlaying } = useQueueStore();
   const [eventHistory, setEventHistory] = useState<EventHistoryItem[]>([]);
+  const [tvMode, setTvMode] = useState(false);
+  const [showTvHelp, setShowTvHelp] = useState(false);
+  const tvContainerRef = useRef<HTMLDivElement>(null);
+
+  const openTvMode = () => {
+    setTvMode(true);
+    // Try to enter real fullscreen on devices that support it (works great on Smart TV browsers / desktop Chrome)
+    setTimeout(() => {
+      const el = tvContainerRef.current;
+      if (el?.requestFullscreen) {
+        el.requestFullscreen().catch(() => {
+          // Fullscreen denied (iOS Safari, some in-app browsers) — the fixed-position overlay still works
+        });
+      }
+    }, 50);
+  };
+
+  const closeTvMode = () => {
+    setTvMode(false);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  // If the user presses Escape to leave fullscreen, also exit TV mode cleanly.
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement && tvMode) {
+        setTvMode(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, [tvMode]);
 
   useEffect(() => {
     if (machineId) {
@@ -110,6 +145,35 @@ export const QueuePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-jb-bg-primary pb-24">
+      {/* TV Mode top bar */}
+      <div className="px-4 pt-3 max-w-lg mx-auto flex items-center justify-between gap-2">
+        <button
+          onClick={openTvMode}
+          className="flex items-center gap-2 text-jb-accent-green bg-jb-accent-green/10 hover:bg-jb-accent-green/20 border border-jb-accent-green/30 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors"
+        >
+          <span>📺</span>
+          <span>TV Mode</span>
+        </button>
+        <button
+          onClick={() => setShowTvHelp((v) => !v)}
+          className="text-jb-text-secondary text-xs hover:text-jb-accent-green"
+        >
+          How to show on TV?
+        </button>
+      </div>
+
+      {showTvHelp && (
+        <div className="px-4 mt-2 max-w-lg mx-auto">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-jb-text-secondary space-y-1.5">
+            <p className="text-jb-text-primary text-sm font-semibold mb-1">How to display on a TV</p>
+            <p>• <strong>Chromecast or Smart TV</strong>: in Chrome, open the menu (⋮) → <em>Cast...</em> → pick your TV. The whole page mirrors.</p>
+            <p>• <strong>Smart TV with a browser</strong>: open <code>jukjoy.com/queue</code> on the TV's browser and tap "TV Mode".</p>
+            <p>• <strong>Phone plugged into TV</strong>: use a USB-C or Lightning-to-HDMI adapter.</p>
+            <p>• <strong>Android TV box</strong>: open <code>jukjoy.com/tv-player</code> for the dedicated fullscreen player with audio.</p>
+          </div>
+        </div>
+      )}
+
       {/* Now Playing Section */}
       {np ? (
         <div className="relative overflow-hidden">
@@ -281,6 +345,16 @@ export const QueuePage: React.FC = () => {
       {/* Shared TV overlays — every customer sees the same photo/video/reaction/birthday.
           muteMedia=true so phone doesn't duplicate the audio that the TV is already playing. */}
       <EventOverlay muteMedia />
+
+      {/* In-page TV Mode — same tab, same URL, works with Chromecast tab casting */}
+      {tvMode && (
+        <div
+          ref={tvContainerRef}
+          className="fixed inset-0 z-[60] bg-jb-bg-primary"
+        >
+          <TvView onClose={closeTvMode} />
+        </div>
+      )}
     </div>
   );
 };
