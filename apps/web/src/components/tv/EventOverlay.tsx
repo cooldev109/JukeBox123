@@ -57,6 +57,8 @@ type SpecialEvent = SilenceEvent | TextMessageEvent | VoiceMessageEvent | PhotoE
 interface EventOverlayProps {
   onMuteAudio?: () => void;
   onUnmuteAudio?: () => void;
+  /** When true, voice-message and video overlays render silently. Use for mirror displays (e.g. customer phones). */
+  muteMedia?: boolean;
 }
 
 // ============================================
@@ -135,7 +137,7 @@ const Confetti: React.FC = () => {
 // ============================================
 // Main EventOverlay Component
 // ============================================
-export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmuteAudio }) => {
+export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmuteAudio, muteMedia = false }) => {
   const [activeEvent, setActiveEvent] = useState<SpecialEvent | null>(null);
   const [countdown, setCountdown] = useState(0);
   const eventQueueRef = useRef<SpecialEvent[]>([]);
@@ -343,7 +345,7 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
             </div>
           </div>
           {/* Hidden audio playback */}
-          <audio src={(activeEvent as VoiceMessageEvent).audioUrl} autoPlay />
+          {!muteMedia && <audio src={(activeEvent as VoiceMessageEvent).audioUrl} autoPlay />}
         </motion.div>
       )}
 
@@ -442,6 +444,7 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
                   src={(activeEvent as VideoEvent).videoUrl}
                   autoPlay
                   playsInline
+                  muted={muteMedia}
                   className="w-64 h-48 rounded-lg object-cover bg-black"
                 />
               </motion.div>
@@ -475,6 +478,7 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
                   src={(activeEvent as VideoEvent).videoUrl}
                   autoPlay
                   playsInline
+                  muted={muteMedia}
                   className="max-w-2xl max-h-[70vh] rounded-xl object-contain bg-black"
                 />
               </motion.div>

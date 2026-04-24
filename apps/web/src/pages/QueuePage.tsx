@@ -167,8 +167,9 @@ export const QueuePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Shared TV overlays — every customer sees the same photo/video/reaction/birthday */}
-      <EventOverlay />
+      {/* Shared TV overlays — every customer sees the same photo/video/reaction/birthday.
+          muteMedia=true so phone doesn't duplicate the audio that the TV is already playing. */}
+      <EventOverlay muteMedia />
     </div>
   );
 };
