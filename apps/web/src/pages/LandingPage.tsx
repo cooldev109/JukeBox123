@@ -17,6 +17,8 @@ export const LandingPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [signupRole, setSignupRole] = useState<'CUSTOMER' | 'BAR_OWNER' | 'AFFILIATE'>('CUSTOMER');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [searchParams] = useSearchParams();
 
@@ -55,16 +57,24 @@ export const LandingPage: React.FC = () => {
   };
 
   const handleRegister = async () => {
-    if (!venueCode.trim()) { setError('Enter the venue code from the QR code at the bar'); return; }
-    if (!name.trim()) { setError('Enter your name'); return; }
     if (!email.trim()) { setError('Enter your email'); return; }
     if (!password.trim() || password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (signupRole === 'CUSTOMER' && !venueCode.trim()) {
+      setError('Enter the venue code from the QR code at the bar');
+      return;
+    }
     setError('');
     try {
-      await register({ name: name.trim(), email: email.trim(), password, role: 'CUSTOMER' });
-      // After register, login with venue code to get machine context
-      await login(email.trim(), password, venueCode.trim());
-      navigate('/browse');
+      // Derive a display name: use provided name, else the email prefix ("jane@foo" -> "jane")
+      const displayName = name.trim() || email.trim().split('@')[0];
+      await register({ name: displayName, email: email.trim(), password, role: signupRole });
+      if (signupRole === 'CUSTOMER') {
+        await login(email.trim(), password, venueCode.trim());
+        navigate('/browse');
+      } else {
+        await login(email.trim(), password);
+        // Redirect handled by the role-based effect above
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || 'Registration failed');
     }
@@ -137,19 +147,32 @@ export const LandingPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <Input
-                label={t('password')}
-                type="password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  label={t('password')}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-[34px] text-jb-text-secondary text-xs hover:text-jb-accent-green"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
 
               {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
 
               <Button variant="primary" fullWidth loading={isLoading} onClick={handleLogin}>
                 {t('enter_jukebox')}
               </Button>
+
+              <Link to="/forgot-password" className="block text-center text-jb-text-secondary text-xs hover:text-jb-accent-green">
+                Forgot your password?
+              </Link>
 
               <Button variant="ghost" fullWidth onClick={() => { setMode('register'); setError(''); }}>
                 {t('new_here')}
@@ -171,21 +194,39 @@ export const LandingPage: React.FC = () => {
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">Create Account</h2>
               <p className="text-jb-text-secondary text-sm text-center mb-4">
-                Sign up to start playing songs
+                Choose your account type
               </p>
 
-              <Input
-                label="Venue Code"
-                placeholder="e.g. BAR-CARLOS"
-                value={venueCode}
-                onChange={(e) => setVenueCode(e.target.value)}
-              />
-              <Input
-                label="Your Name"
-                placeholder="What should we call you?"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              {/* Role selector */}
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { key: 'CUSTOMER', label: 'Customer' },
+                  { key: 'BAR_OWNER', label: 'Bar Owner' },
+                  { key: 'AFFILIATE', label: 'Affiliate' },
+                ] as const).map((r) => (
+                  <button
+                    key={r.key}
+                    type="button"
+                    onClick={() => { setSignupRole(r.key); setError(''); }}
+                    className={`text-xs font-semibold py-2 rounded-lg border transition-colors ${
+                      signupRole === r.key
+                        ? 'bg-jb-accent-green/20 text-jb-accent-green border-jb-accent-green/40'
+                        : 'bg-white/5 text-jb-text-secondary border-white/10 hover:border-white/20'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {signupRole === 'CUSTOMER' && (
+                <Input
+                  label="Venue Code"
+                  placeholder="e.g. BAR-CARLOS"
+                  value={venueCode}
+                  onChange={(e) => setVenueCode(e.target.value)}
+                />
+              )}
               <Input
                 label="Email"
                 type="email"
@@ -193,13 +234,36 @@ export const LandingPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+              <div className="relative">
+                <Input
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-[34px] text-jb-text-secondary text-xs hover:text-jb-accent-green"
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
               <Input
-                label="Password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                label="Display Name (optional)"
+                placeholder="Auto-filled from email if blank"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
+
+              {signupRole !== 'CUSTOMER' && (
+                <p className="text-jb-text-secondary text-xs text-center">
+                  {signupRole === 'BAR_OWNER'
+                    ? 'After signup, an admin will link your account to your venue.'
+                    : 'You will receive a personal referral code after signup.'}
+                </p>
+              )}
 
               {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
 

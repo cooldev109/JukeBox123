@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Button, Input } from '@jukebox/ui';
 import { api } from '../../lib/api';
 import { EventConfigEditor } from '../../components/EventConfigEditor';
@@ -309,6 +310,132 @@ export const SettingsPage: React.FC = () => {
         </h3>
         <EventConfigEditor />
       </Card>
+
+      {/* Products quick editor (drinks/food/combos etc.) */}
+      <ProductsInlineEditor />
     </div>
+  );
+};
+
+// ============================================
+// Inline product price editor — saves each row on blur
+// ============================================
+interface InlineProduct {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  basePrice: number;
+  isActive: boolean;
+}
+
+const ProductsInlineEditor: React.FC = () => {
+  const [items, setItems] = useState<InlineProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get('/products/all');
+        setItems(res.data.data.products);
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to load products');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const updatePrice = async (id: string, newPrice: number) => {
+    if (isNaN(newPrice) || newPrice < 0) return;
+    setSavingId(id);
+    setError('');
+    try {
+      await api.put(`/products/${id}`, { basePrice: newPrice });
+      setItems((prev) => prev.map((p) => (p.id === id ? { ...p, basePrice: newPrice } : p)));
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Save failed');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const filtered = items.filter(
+    (p) =>
+      !filter ||
+      p.name.toLowerCase().includes(filter.toLowerCase()) ||
+      p.category.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  return (
+    <Card className="p-6 max-w-3xl mt-8" hoverable={false}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-[#F5F5F5]">Products (Global Base Prices)</h3>
+        <Link to="/admin/products" className="text-jb-accent-green text-xs hover:underline">
+          Open full product manager →
+        </Link>
+      </div>
+      <p className="text-jb-text-secondary text-sm mb-3">
+        These are the default base prices for every venue. Individual venues can still override them on their venue detail page.
+      </p>
+
+      <input
+        type="text"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        placeholder="Filter by name or category..."
+        className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2 text-sm text-jb-text-primary mb-3 focus:outline-none focus:border-jb-accent-green"
+      />
+
+      {loading ? (
+        <p className="text-jb-text-secondary text-sm">Loading products...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-jb-text-secondary text-sm">No products.</p>
+      ) : (
+        <div className="max-h-[400px] overflow-y-auto border border-white/5 rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-jb-bg-secondary/60 sticky top-0">
+              <tr>
+                <th className="text-left px-3 py-2 text-jb-text-secondary font-normal">Product</th>
+                <th className="text-left px-3 py-2 text-jb-text-secondary font-normal">Category</th>
+                <th className="text-left px-3 py-2 text-jb-text-secondary font-normal">Price (R$)</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={p.id} className="border-t border-white/5">
+                  <td className="px-3 py-2 text-jb-text-primary">
+                    <span className="font-medium">{p.name}</span>
+                    <span className="text-jb-text-secondary text-xs ml-2">{p.code}</span>
+                  </td>
+                  <td className="px-3 py-2 text-jb-text-secondary text-xs">{p.category}</td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={p.basePrice}
+                      onBlur={(e) => {
+                        const newVal = parseFloat(e.target.value);
+                        if (newVal !== p.basePrice) updatePrice(p.id, newVal);
+                      }}
+                      className="w-24 bg-jb-bg-secondary border border-white/10 rounded px-2 py-1 text-jb-text-primary focus:outline-none focus:border-jb-accent-green"
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {savingId === p.id && <span className="text-jb-accent-purple">Saving...</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {error && <p className="text-jb-highlight-pink text-sm mt-3">{error}</p>}
+    </Card>
   );
 };

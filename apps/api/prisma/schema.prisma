@@ -42,6 +42,7 @@ model User {
   queueItems          QueueItem[]
   transactions        Transaction[]
   wallet              Wallet?
+  passwordResets      PasswordReset[]
   playlists           Playlist[]
   songRequests        SongRequest[]
   commissions         Commission[]         @relation("AffiliateCommissions")
@@ -316,6 +317,23 @@ model Transaction {
   @@index([status])
   @@index([type])
   @@index([createdAt(sort: Desc)])
+}
+
+// ============================================
+// PASSWORD RESETS
+// ============================================
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, code])
+  @@index([expiresAt])
 }
 
 // ============================================

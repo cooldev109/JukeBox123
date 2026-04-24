@@ -380,7 +380,7 @@ export const TvPlayerPage: React.FC = () => {
       <div className="relative z-10 w-full h-full flex">
         {/* Left: Now Playing */}
         <div
-          className={`flex-1 flex flex-col items-center justify-center p-8 ${showQueue ? 'pr-4' : ''}`}
+          className={`flex-1 flex flex-col items-center justify-center p-4 md:p-8 ${showQueue ? 'md:pr-4' : ''}`}
         >
           {isIdle && !song ? (
             /* Idle Mode */
@@ -392,14 +392,14 @@ export const TvPlayerPage: React.FC = () => {
               <motion.img
                 src="/logo.png"
                 alt="Smart JukeBox"
-                className="h-32 mx-auto mb-4"
+                className="h-20 md:h-32 mx-auto mb-4"
                 animate={{ opacity: [1, 0.8, 1] }}
                 transition={{ duration: 3, repeat: Infinity }}
               />
-              <p className="text-3xl text-jb-text-secondary mb-8">
+              <p className="text-xl md:text-3xl text-jb-text-secondary mb-4 md:mb-8 break-words">
                 {venueName || 'Your music, your bar'}
               </p>
-              <p className="text-xl text-jb-text-secondary/60">
+              <p className="text-base md:text-xl text-jb-text-secondary/60">
                 Scan the QR code to add songs!
               </p>
               <div className="mt-12">
@@ -419,7 +419,7 @@ export const TvPlayerPage: React.FC = () => {
               >
                 {/* Album Art */}
                 <motion.div
-                  className="w-80 h-80 mx-auto rounded-3xl overflow-hidden shadow-glow-purple mb-8"
+                  className="w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 mx-auto rounded-3xl overflow-hidden shadow-glow-purple mb-4 md:mb-8"
                   animate={{ rotate: isPlaying ? 360 : 0 }}
                   transition={{
                     duration: 20,
@@ -436,7 +436,7 @@ export const TvPlayerPage: React.FC = () => {
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-jb-accent-purple to-jb-highlight-pink flex items-center justify-center">
                       <svg
-                        className="w-32 h-32 text-white/50"
+                        className="w-20 h-20 md:w-32 md:h-32 text-white/50"
                         fill="currentColor"
                         viewBox="0 0 24 24"
                       >
@@ -447,14 +447,14 @@ export const TvPlayerPage: React.FC = () => {
                 </motion.div>
 
                 {/* Song Info */}
-                <h2 className="text-5xl font-bold text-jb-text-primary mb-3 neon-text-green">
+                <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold text-jb-text-primary mb-2 md:mb-3 neon-text-green break-words">
                   {song.title}
                 </h2>
-                <p className="text-3xl text-jb-text-secondary mb-2">
+                <p className="text-lg sm:text-xl md:text-3xl text-jb-text-secondary mb-1 md:mb-2 break-words">
                   {song.artist}
                 </p>
                 {song.album && (
-                  <p className="text-xl text-jb-text-secondary/60">
+                  <p className="text-sm md:text-xl text-jb-text-secondary/60 break-words">
                     {song.album}
                   </p>
                 )}
@@ -478,7 +478,7 @@ export const TvPlayerPage: React.FC = () => {
           ) : null}
         </div>
 
-        {/* Right: Queue Panel */}
+        {/* Right: Queue Panel — hidden on phones (they have the Queue tab) */}
         <AnimatePresence>
           {showQueue && (
             <motion.div
@@ -486,7 +486,7 @@ export const TvPlayerPage: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: 400 }}
               transition={{ type: 'spring', damping: 25 }}
-              className="w-96 bg-jb-bg-primary/80 backdrop-blur-xl border-l border-white/10 flex flex-col"
+              className="hidden md:flex w-96 bg-jb-bg-primary/80 backdrop-blur-xl border-l border-white/10 flex-col"
             >
               <div className="p-4 border-b border-white/10">
                 <h3 className="text-lg font-bold text-jb-accent-green">
@@ -574,20 +574,20 @@ export const TvPlayerPage: React.FC = () => {
               transition={{ duration: 0.5 }}
             />
           </div>
-          <div className="flex items-center justify-between px-6 py-3 bg-jb-bg-primary/80 backdrop-blur-xl">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-3 px-3 md:px-6 py-2 md:py-3 bg-jb-bg-primary/80 backdrop-blur-xl">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0">
               <MusicVisualizer isPlaying={isPlaying} size="sm" barCount={4} />
-              <div>
-                <p className="text-jb-text-primary font-bold">{song.title}</p>
-                <p className="text-jb-text-secondary text-sm">{song.artist}</p>
+              <div className="min-w-0">
+                <p className="text-jb-text-primary text-sm md:text-base font-bold truncate">{song.title}</p>
+                <p className="text-jb-text-secondary text-xs md:text-sm truncate">{song.artist}</p>
               </div>
             </div>
-            <div className="flex items-center gap-6 text-jb-text-secondary text-sm">
-              <span>
+            <div className="flex items-center gap-3 md:gap-6 text-jb-text-secondary text-xs md:text-sm flex-shrink-0">
+              <span className="whitespace-nowrap">
                 {formatTime(elapsed)} / {formatTime(duration)}
               </span>
               {currentItem?.user && (
-                <span className="text-jb-accent-purple">
+                <span className="text-jb-accent-purple hidden md:inline">
                   Requested by {currentItem.user.name}
                 </span>
               )}
@@ -597,11 +597,11 @@ export const TvPlayerPage: React.FC = () => {
       )}
 
       {/* Top Bar: Status + Venue */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-3 bg-gradient-to-b from-jb-bg-primary/80 to-transparent">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Smart JukeBox" className="h-8" />
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-3 md:px-6 py-2 md:py-3 bg-gradient-to-b from-jb-bg-primary/80 to-transparent">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <img src="/logo.png" alt="Smart JukeBox" className="h-6 md:h-8" />
           {venueName && (
-            <span className="text-jb-text-secondary text-sm">
+            <span className="text-jb-text-secondary text-xs md:text-sm truncate">
               | {venueName}
             </span>
           )}
@@ -618,8 +618,8 @@ export const TvPlayerPage: React.FC = () => {
         </div>
       </div>
 
-      {/* QR Code corner -- always visible */}
-      <div className="absolute bottom-20 right-6 z-20 bg-white p-3 rounded-xl shadow-glow-green">
+      {/* QR Code corner placeholder — hidden on phones (real QR is below) */}
+      <div className="hidden md:block absolute bottom-20 right-6 z-20 bg-white p-3 rounded-xl shadow-glow-green">
         <div className="w-24 h-24 bg-jb-bg-primary flex items-center justify-center rounded">
           <span className="text-jb-accent-green text-[10px] text-center font-bold leading-tight">
             Scan to
@@ -629,17 +629,18 @@ export const TvPlayerPage: React.FC = () => {
         </div>
       </div>
 
-      {/* QR Code for customers to scan */}
+      {/* QR Code for customers to scan — smaller on phones */}
       {venueCode && (
-        <div className="fixed bottom-4 right-4 z-30 bg-white rounded-xl p-3 shadow-2xl flex flex-col items-center gap-1">
+        <div className="fixed bottom-14 md:bottom-4 right-2 md:right-4 z-30 bg-white rounded-xl p-2 md:p-3 shadow-2xl flex flex-col items-center gap-1">
           <QRCodeCanvas
             value={`${window.location.origin}/browse?venue=${encodeURIComponent(venueCode)}`}
-            size={120}
+            size={72}
             level="M"
-            includeMargin={false}
+            marginSize={0}
+            className="md:!w-[120px] md:!h-[120px]"
           />
-          <p className="text-black text-xs font-bold">{venueCode}</p>
-          <p className="text-gray-600 text-[10px]">Scan to play music</p>
+          <p className="text-black text-[10px] md:text-xs font-bold">{venueCode}</p>
+          <p className="text-gray-600 text-[9px] md:text-[10px] hidden md:block">Scan to play music</p>
         </div>
       )}
 

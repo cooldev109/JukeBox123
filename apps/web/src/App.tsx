@@ -41,6 +41,7 @@ import { AffiliateReferralsPage } from './pages/affiliate/AffiliateReferralsPage
 import { AffiliateQRCodePage } from './pages/affiliate/AffiliateQRCodePage';
 import { SpecialEventsPage } from './pages/SpecialEventsPage';
 import { StaffLoginPage } from './pages/StaffLoginPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { useAuthStore } from './stores/authStore';
 
 export function App() {
@@ -73,6 +74,7 @@ export function App() {
       {/* Public */}
       <Route path="/login" element={<LandingPage />} />
       <Route path="/staff-login" element={<StaffLoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       {/* Customer — browse is the homepage */}
       <Route element={<CustomerLayout />}>

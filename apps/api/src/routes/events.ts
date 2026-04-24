@@ -139,7 +139,7 @@ async function chargeWallet(
   tx: Prisma.TransactionClient,
   userId: string,
   amount: number,
-  type: 'SKIP_QUEUE' | 'SILENCE' | 'VOICE_MSG' | 'PHOTO' | 'REACTION' | 'BIRTHDAY_PACK',
+  type: 'SKIP_QUEUE' | 'SILENCE' | 'VOICE_MSG' | 'PHOTO' | 'VIDEO' | 'REACTION' | 'BIRTHDAY_PACK',
   machineId: string,
 ) {
   const wallet = await tx.wallet.findUnique({ where: { userId } });

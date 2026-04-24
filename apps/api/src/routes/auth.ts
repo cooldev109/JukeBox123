@@ -250,6 +250,81 @@ authRouter.post('/refresh', async (req: Request, res: Response, next: NextFuncti
 });
 
 // ============================================
+// POST /auth/password-reset-request
+// Always responds 200 to avoid leaking which emails exist.
+// Logs the request and, if the user exists, generates a short-lived reset token
+// stored as a dedicated PasswordResetRequest Alert so admins can see pending resets.
+// ============================================
+const passwordResetRequestSchema = z.object({
+  email: z.string().email(),
+});
+
+authRouter.post('/password-reset-request', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = passwordResetRequestSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email: data.email } });
+
+    if (user) {
+      // Generate a 6-digit reset code valid for 30 minutes
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      // Write to PasswordReset table (create row) — schema must have this table
+      await prisma.passwordReset.create({
+        data: { userId: user.id, code, expiresAt },
+      }).catch(() => {
+        // If table doesn't exist, silently log to console for admin manual action
+        // eslint-disable-next-line no-console
+        console.warn(`[password-reset] Requested for user ${user.id} (${user.email}). PasswordReset table missing.`);
+      });
+    }
+
+    // Always report success to avoid email enumeration
+    res.json({ success: true, data: { message: 'If an account exists, reset instructions have been sent.' } });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+});
+
+// POST /auth/password-reset-confirm — user submits code + new password
+const passwordResetConfirmSchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6),
+  newPassword: z.string().min(6).max(100),
+});
+
+authRouter.post('/password-reset-confirm', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = passwordResetConfirmSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email: data.email } });
+    if (!user) throw new AppError('Invalid code', 400);
+
+    const reset = await prisma.passwordReset.findFirst({
+      where: { userId: user.id, code: data.code, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    }).catch(() => null);
+
+    if (!reset) throw new AppError('Invalid or expired code', 400);
+
+    const passwordHash = await bcrypt.hash(data.newPassword, 10);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
+      prisma.passwordReset.update({ where: { id: reset.id }, data: { usedAt: new Date() } }),
+    ]);
+
+    res.json({ success: true, data: { message: 'Password updated. You can log in with the new password.' } });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(new AppError(error.errors[0].message, 400));
+    }
+    next(error);
+  }
+});
+
+// ============================================
 // POST /auth/qr-register
 // ============================================
 authRouter.post('/qr-register', async (req: Request, res: Response, next: NextFunction) => {

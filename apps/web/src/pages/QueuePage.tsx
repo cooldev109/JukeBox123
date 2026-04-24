@@ -1,10 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QueueItemComponent, MusicVisualizer } from '@jukebox/ui';
 import { useQueueStore } from '../stores/queueStore';
 import { useI18n } from '../lib/i18n';
 import { EventOverlay } from '../components/tv/EventOverlay';
 import { getSocket } from '../lib/socket';
+
+interface EventHistoryItem {
+  id: string;
+  type: 'photo' | 'video' | 'textMessage' | 'reaction' | 'birthday' | 'voiceMessage';
+  userName?: string;
+  photoUrl?: string;
+  videoUrl?: string;
+  message?: string;
+  reactionType?: string;
+  name?: string;
+  at: number;
+}
+
+const REACTION_EMOJI: Record<string, string> = {
+  APPLAUSE: '👏',
+  BOO: '👎',
+  LAUGH: '😂',
+  HEART: '❤️',
+  FIRE: '🔥',
+};
 
 const formatDuration = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
@@ -15,6 +35,7 @@ const formatDuration = (seconds: number): string => {
 export const QueuePage: React.FC = () => {
   const { t } = useI18n();
   const { queue, nowPlaying, machineId, fetchQueue, fetchNowPlaying } = useQueueStore();
+  const [eventHistory, setEventHistory] = useState<EventHistoryItem[]>([]);
 
   useEffect(() => {
     if (machineId) {
@@ -33,15 +54,43 @@ export const QueuePage: React.FC = () => {
       if (fn) fn(event);
     };
 
+    const pushHistory = (item: Omit<EventHistoryItem, 'id' | 'at'>) => {
+      setEventHistory((prev) => {
+        const next: EventHistoryItem = {
+          id: `${Date.now()}-${Math.random()}`,
+          at: Date.now(),
+          ...item,
+        };
+        // Keep only the most recent 30 items
+        return [next, ...prev].slice(0, 30);
+      });
+    };
+
     socket.on('event:silence', (data: any) => queueEvent({ type: 'silence', ...data }));
-    socket.on('event:textMessage', (data: any) => queueEvent({ type: 'textMessage', ...data }));
-    socket.on('event:voiceMessage', (data: any) => queueEvent({ type: 'voiceMessage', ...data }));
-    socket.on('event:photo', (data: any) => queueEvent({ type: 'photo', ...data }));
-    socket.on('event:video', (data: any) => queueEvent({ type: 'video', ...data }));
-    socket.on('event:reaction', (data: any) =>
-      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName })
-    );
-    socket.on('event:birthday', (data: any) => queueEvent({ type: 'birthday', ...data }));
+    socket.on('event:textMessage', (data: any) => {
+      queueEvent({ type: 'textMessage', ...data });
+      pushHistory({ type: 'textMessage', message: data.message, userName: data.userName });
+    });
+    socket.on('event:voiceMessage', (data: any) => {
+      queueEvent({ type: 'voiceMessage', ...data });
+      pushHistory({ type: 'voiceMessage', userName: data.userName });
+    });
+    socket.on('event:photo', (data: any) => {
+      queueEvent({ type: 'photo', ...data });
+      pushHistory({ type: 'photo', photoUrl: data.photoUrl, userName: data.userName });
+    });
+    socket.on('event:video', (data: any) => {
+      queueEvent({ type: 'video', ...data });
+      pushHistory({ type: 'video', videoUrl: data.videoUrl, userName: data.userName });
+    });
+    socket.on('event:reaction', (data: any) => {
+      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName });
+      pushHistory({ type: 'reaction', reactionType: data.type, userName: data.userName });
+    });
+    socket.on('event:birthday', (data: any) => {
+      queueEvent({ type: 'birthday', ...data });
+      pushHistory({ type: 'birthday', name: data.name, userName: data.userName });
+    });
 
     return () => {
       socket.off('event:silence');
@@ -168,6 +217,66 @@ export const QueuePage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Event history — memes, photos, messages that have played on TV */}
+      {eventHistory.length > 0 && (
+        <div className="px-4 mt-8">
+          <div className="max-w-lg mx-auto">
+            <h3 className="text-lg font-bold text-jb-text-primary mb-3">Recent moments</h3>
+            <div className="space-y-2">
+              {eventHistory.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="bg-white/5 rounded-xl p-3 border border-white/5 flex items-center gap-3"
+                >
+                  {ev.type === 'photo' && ev.photoUrl && (
+                    <img src={ev.photoUrl} alt="" className="w-16 h-16 rounded-lg object-cover bg-black" />
+                  )}
+                  {ev.type === 'video' && ev.videoUrl && (
+                    <video src={ev.videoUrl} muted playsInline className="w-16 h-16 rounded-lg object-cover bg-black" />
+                  )}
+                  {ev.type === 'reaction' && (
+                    <div className="w-12 h-12 rounded-full bg-jb-accent-purple/20 flex items-center justify-center text-2xl flex-shrink-0">
+                      {REACTION_EMOJI[ev.reactionType || ''] || '✨'}
+                    </div>
+                  )}
+                  {ev.type === 'birthday' && (
+                    <div className="w-12 h-12 rounded-full bg-jb-highlight-pink/20 flex items-center justify-center text-2xl flex-shrink-0">
+                      🎂
+                    </div>
+                  )}
+                  {ev.type === 'textMessage' && (
+                    <div className="w-12 h-12 rounded-full bg-jb-accent-green/20 flex items-center justify-center text-xl flex-shrink-0">
+                      💬
+                    </div>
+                  )}
+                  {ev.type === 'voiceMessage' && (
+                    <div className="w-12 h-12 rounded-full bg-jb-accent-purple/20 flex items-center justify-center text-xl flex-shrink-0">
+                      🎙️
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-jb-text-primary text-sm font-medium">
+                      {ev.type === 'photo' && 'Photo'}
+                      {ev.type === 'video' && 'Video'}
+                      {ev.type === 'reaction' && 'Reaction'}
+                      {ev.type === 'birthday' && `Happy Birthday, ${ev.name}!`}
+                      {ev.type === 'textMessage' && 'Message'}
+                      {ev.type === 'voiceMessage' && 'Voice message'}
+                    </p>
+                    {ev.type === 'textMessage' && ev.message && (
+                      <p className="text-jb-text-secondary text-xs truncate">{ev.message}</p>
+                    )}
+                    {ev.userName && (
+                      <p className="text-jb-text-secondary text-xs">by {ev.userName}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Shared TV overlays — every customer sees the same photo/video/reaction/birthday.
           muteMedia=true so phone doesn't duplicate the audio that the TV is already playing. */}
