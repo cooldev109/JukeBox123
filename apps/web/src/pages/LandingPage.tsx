@@ -5,6 +5,7 @@ import { Button, Input } from '@jukebox/ui';
 import { useAuthStore } from '../stores/authStore';
 import { GoogleLoginButton } from '../components/GoogleLoginButton';
 import { LanguageToggle } from '../components/LanguageToggle';
+import { PasswordInput } from '../components/PasswordInput';
 import { useI18n } from '../lib/i18n';
 
 export const LandingPage: React.FC = () => {
@@ -18,15 +19,20 @@ export const LandingPage: React.FC = () => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [signupRole, setSignupRole] = useState<'CUSTOMER' | 'BAR_OWNER' | 'AFFILIATE'>('CUSTOMER');
-  const [showPassword, setShowPassword] = useState(false);
 
   const [searchParams] = useSearchParams();
 
   // Auto-fill venue code from URL params (from QR code scan)
+  // and pre-select signup role + open register tab when ?signup=BAR_OWNER etc.
   React.useEffect(() => {
     const venueParam = searchParams.get('venue');
     if (venueParam) {
       setVenueCode(venueParam);
+    }
+    const signupParam = searchParams.get('signup');
+    if (signupParam === 'BAR_OWNER' || signupParam === 'AFFILIATE' || signupParam === 'CUSTOMER') {
+      setSignupRole(signupParam);
+      setMode('register');
     }
   }, [searchParams]);
 
@@ -147,22 +153,13 @@ export const LandingPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <div className="relative">
-                <Input
-                  label={t('password')}
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-jb-text-secondary text-xs hover:text-jb-accent-green"
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
+              <PasswordInput
+                label={t('password')}
+                placeholder="Your password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="current-password"
+              />
 
               {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
 
@@ -234,22 +231,13 @@ export const LandingPage: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <div className="relative">
-                <Input
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="At least 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-jb-text-secondary text-xs hover:text-jb-accent-green"
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
+              <PasswordInput
+                label="Password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+              />
               <Input
                 label="Display Name (optional)"
                 placeholder="Auto-filled from email if blank"

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button, Input, Card } from '@jukebox/ui';
+import { PasswordInput } from '../components/PasswordInput';
 import { api } from '../lib/api';
 
 type Step = 'request' | 'requested' | 'confirm' | 'done';
@@ -11,7 +12,6 @@ export const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -125,22 +125,13 @@ export const ForgotPasswordPage: React.FC = () => {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               />
-              <div className="relative">
-                <Input
-                  label="New Password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="At least 6 characters"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-[34px] text-jb-text-secondary text-xs hover:text-jb-accent-green"
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
+              <PasswordInput
+                label="New Password"
+                placeholder="At least 6 characters"
+                value={newPassword}
+                onChange={setNewPassword}
+                autoComplete="new-password"
+              />
               {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
               <Button variant="primary" fullWidth loading={loading} onClick={confirmReset}>
                 Reset password

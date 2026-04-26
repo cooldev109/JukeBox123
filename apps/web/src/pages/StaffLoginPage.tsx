@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button, Input } from '@jukebox/ui';
 import { useAuthStore } from '../stores/authStore';
+import { PasswordInput } from '../components/PasswordInput';
 
 export const StaffLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -79,12 +80,10 @@ export const StaffLoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Your password"
+            <PasswordInput
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={setPassword}
+              autoComplete="current-password"
             />
 
             {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
@@ -92,7 +91,35 @@ export const StaffLoginPage: React.FC = () => {
             <Button variant="primary" fullWidth loading={isLoading} onClick={handleLogin}>
               Login
             </Button>
+
+            <Link
+              to="/forgot-password"
+              className="block text-center text-jb-text-secondary text-xs hover:text-jb-accent-green"
+            >
+              Forgot your password?
+            </Link>
           </div>
+        </motion.div>
+
+        {/* Create new account */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="mt-4 grid grid-cols-2 gap-3"
+        >
+          <Link
+            to="/login?signup=BAR_OWNER"
+            className="text-center bg-jb-accent-green/10 hover:bg-jb-accent-green/20 border border-jb-accent-green/30 text-jb-accent-green text-sm font-semibold rounded-lg py-2.5 transition-colors"
+          >
+            Create Bar Account
+          </Link>
+          <Link
+            to="/login?signup=AFFILIATE"
+            className="text-center bg-jb-accent-purple/10 hover:bg-jb-accent-purple/20 border border-jb-accent-purple/30 text-jb-accent-purple text-sm font-semibold rounded-lg py-2.5 transition-colors"
+          >
+            Create Affiliate Account
+          </Link>
         </motion.div>
 
         {/* Back to customer entry */}
