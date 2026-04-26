@@ -32,13 +32,31 @@ export const MachineStatusPage: React.FC = () => {
     navigator.clipboard.writeText(getTvPlayerUrl(machineId));
   };
 
+  const isPending = (venue as any)?.status === 'PENDING';
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-jb-text-primary mb-6">Machine Status</h2>
 
+      {isPending && (
+        <div className="bg-jb-accent-purple/10 border border-jb-accent-purple/40 rounded-xl p-4 mb-6">
+          <p className="text-jb-accent-purple font-bold mb-1">Your bar is pending approval</p>
+          <p className="text-jb-text-secondary text-sm">
+            An admin will review and approve your venue shortly. Once approved, your jukebox machine will appear here automatically and you can start receiving customers.
+          </p>
+          {venue?.code && (
+            <p className="text-jb-text-secondary text-xs mt-2">
+              Your venue code (after approval): <span className="text-jb-accent-green font-mono">{venue.code}</span>
+            </p>
+          )}
+        </div>
+      )}
+
       {machines.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-jb-text-secondary">No machine registered for your venue</p>
+          <p className="text-jb-text-secondary">
+            {isPending ? 'Your machine will be created automatically once an admin approves your venue.' : 'No machine registered for your venue'}
+          </p>
         </div>
       ) : (
         <>

@@ -10,6 +10,28 @@ import { AppError } from '../middleware/errorHandler.js';
 export const authRouter = Router();
 
 // ============================================
+// Helpers
+// ============================================
+async function generateUniqueVenueCode(barName: string): Promise<string> {
+  // Slugify name: keep ASCII letters/numbers, uppercase, replace spaces with -
+  const base = barName
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30) || 'BAR';
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const suffix = attempt === 0 ? '' : `-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const code = `${base}${suffix}`;
+    const exists = await prisma.venue.findUnique({ where: { code } });
+    if (!exists) return code;
+  }
+  // Fallback: prefix with timestamp
+  return `BAR-${Date.now().toString(36).toUpperCase()}`;
+}
+
+// ============================================
 // Validation schemas
 // ============================================
 const registerSchema = z.object({
@@ -20,6 +42,11 @@ const registerSchema = z.object({
   role: z.enum(['ADMIN', 'BAR_OWNER', 'CUSTOMER', 'EMPLOYEE', 'AFFILIATE']).default('CUSTOMER'),
   regionAccess: z.string().min(1).max(100).optional(), // For EMPLOYEE
   referralCode: z.string().min(3).max(50).optional(),  // For AFFILIATE
+  // Bar Owner self-signup: bar info used to auto-create a pending Venue
+  barName: z.string().min(2).max(120).optional(),
+  barCity: z.string().max(120).optional(),
+  barState: z.string().max(60).optional(),
+  barAddress: z.string().max(255).optional(),
 }).refine((data) => data.email || data.phone, {
   message: 'Either email or phone is required',
 });
@@ -107,9 +134,29 @@ authRouter.post('/register', async (req: Request, res: Response, next: NextFunct
       await prisma.wallet.create({ data: { userId: user.id } });
     }
 
+    // Bar Owner self-signup: create a PENDING Venue tied to the new user so
+    // it shows up in the admin's Venues list awaiting approval.
+    let venue = null;
+    if (data.role === 'BAR_OWNER') {
+      const barName = data.barName?.trim() || `${data.name}'s Bar`;
+      const code = await generateUniqueVenueCode(barName);
+      venue = await prisma.venue.create({
+        data: {
+          ownerId: user.id,
+          code,
+          name: barName,
+          address: data.barAddress?.trim() || 'Pending',
+          city: data.barCity?.trim() || 'Pending',
+          state: data.barState?.trim() || 'Pending',
+          status: 'PENDING',
+        },
+        select: { id: true, code: true, name: true, status: true },
+      });
+    }
+
     const tokens = generateTokenPair({ userId: user.id, role: user.role });
 
-    res.status(201).json({ success: true, data: { user, tokens } });
+    res.status(201).json({ success: true, data: { user, tokens, venue } });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));

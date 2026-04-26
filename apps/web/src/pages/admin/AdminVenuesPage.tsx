@@ -2,8 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Skeleton, Button, Input, Modal } from '@jukebox/ui';
 import { useAdminStore } from '../../stores/adminStore';
+import { api } from '../../lib/api';
 
 const statusColor = (s: string) => {
+  if (s === 'PENDING') return 'text-jb-accent-purple bg-jb-accent-purple/10 border-jb-accent-purple/40';
   if (s === 'ACTIVE') return 'text-jb-accent-green bg-jb-accent-green/10 border-jb-accent-green/30';
   if (s === 'INACTIVE') return 'text-amber-400 bg-amber-400/10 border-amber-400/30';
   return 'text-red-400 bg-red-400/10 border-red-400/30';
@@ -82,9 +84,20 @@ export const AdminVenuesPage: React.FC = () => {
   };
 
   const statusCounts = {
+    PENDING: venues.filter(v => v.status === 'PENDING').length,
     ACTIVE: venues.filter(v => v.status === 'ACTIVE').length,
     INACTIVE: venues.filter(v => v.status === 'INACTIVE').length,
     SUSPENDED: venues.filter(v => v.status === 'SUSPENDED').length,
+  };
+
+  const handleApprove = async (id: string, name: string) => {
+    if (!window.confirm(`Approve "${name}"? Status will become ACTIVE and a default machine will be created.`)) return;
+    try {
+      await api.post(`/venues/${id}/approve`);
+      loadVenues();
+    } catch (err: any) {
+      window.alert(err.response?.data?.error || 'Failed to approve venue');
+    }
   };
 
   return (
@@ -92,12 +105,12 @@ export const AdminVenuesPage: React.FC = () => {
       <h2 className="text-2xl font-bold text-jb-text-primary mb-6">Venues</h2>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 desktop:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 desktop:grid-cols-5 gap-3 mb-6">
         <Card glowColor="purple" className="p-4 text-center">
           <p className="text-jb-text-secondary text-xs mb-1">Total Venues</p>
           <p className="text-3xl font-bold text-jb-accent-purple">{venues.length}</p>
         </Card>
-        {(['ACTIVE', 'INACTIVE', 'SUSPENDED'] as const).map(s => (
+        {(['PENDING', 'ACTIVE', 'INACTIVE', 'SUSPENDED'] as const).map(s => (
           <button
             key={s}
             onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
@@ -149,6 +162,15 @@ export const AdminVenuesPage: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                  {venue.status === 'PENDING' && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleApprove(venue.id, venue.name); }}
+                      className="px-3 py-1.5 rounded-lg bg-jb-accent-green/20 hover:bg-jb-accent-green/30 text-jb-accent-green text-xs font-bold transition-colors"
+                      title="Approve venue"
+                    >
+                      Approve
+                    </button>
+                  )}
                   <button
                     onClick={(e) => { e.stopPropagation(); openEdit(venue); }}
                     className="p-2 rounded-lg hover:bg-white/10 text-jb-text-secondary hover:text-jb-accent-green transition-colors"
@@ -193,6 +215,7 @@ export const AdminVenuesPage: React.FC = () => {
               onChange={(e) => setFormData(p => ({ ...p, status: e.target.value }))}
               className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
             >
+              <option value="PENDING">PENDING</option>
               <option value="ACTIVE">ACTIVE</option>
               <option value="INACTIVE">INACTIVE</option>
               <option value="SUSPENDED">SUSPENDED</option>

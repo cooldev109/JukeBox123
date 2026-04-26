@@ -20,7 +20,7 @@ interface AuthState {
   login: (email: string, password: string, venueCode?: string) => Promise<User>;
   loginWithOtp: (phone: string, otp: string) => Promise<void>;
   requestOtp: (phone: string) => Promise<string | null>;
-  register: (data: { name: string; email?: string; phone?: string; password?: string; role?: string }) => Promise<void>;
+  register: (data: { name: string; email?: string; phone?: string; password?: string; role?: string; barName?: string; barCity?: string; barState?: string; barAddress?: string }) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<User>;
   qrRegister: (venueCode: string, name?: string, phone?: string) => Promise<{ venueName: string }>;
   fetchMe: () => Promise<void>;

@@ -19,6 +19,9 @@ export const LandingPage: React.FC = () => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [signupRole, setSignupRole] = useState<'CUSTOMER' | 'BAR_OWNER' | 'AFFILIATE'>('CUSTOMER');
+  const [barName, setBarName] = useState('');
+  const [barCity, setBarCity] = useState('');
+  const [barState, setBarState] = useState('');
 
   const [searchParams] = useSearchParams();
 
@@ -69,11 +72,25 @@ export const LandingPage: React.FC = () => {
       setError('Enter the venue code from the QR code at the bar');
       return;
     }
+    if (signupRole === 'BAR_OWNER' && !barName.trim()) {
+      setError('Enter your bar name so we can create your venue');
+      return;
+    }
     setError('');
     try {
       // Derive a display name: use provided name, else the email prefix ("jane@foo" -> "jane")
       const displayName = name.trim() || email.trim().split('@')[0];
-      await register({ name: displayName, email: email.trim(), password, role: signupRole });
+      await register({
+        name: displayName,
+        email: email.trim(),
+        password,
+        role: signupRole,
+        ...(signupRole === 'BAR_OWNER' && {
+          barName: barName.trim(),
+          barCity: barCity.trim() || undefined,
+          barState: barState.trim() || undefined,
+        }),
+      });
       if (signupRole === 'CUSTOMER') {
         // Customers need a second login pass to attach the venue+machine context.
         await login(email.trim(), password, venueCode.trim());
@@ -224,6 +241,30 @@ export const LandingPage: React.FC = () => {
                   onChange={(e) => setVenueCode(e.target.value)}
                 />
               )}
+              {signupRole === 'BAR_OWNER' && (
+                <>
+                  <Input
+                    label="Bar Name"
+                    placeholder="e.g. Boteco do Carlos"
+                    value={barName}
+                    onChange={(e) => setBarName(e.target.value)}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="City (optional)"
+                      placeholder="e.g. Sao Paulo"
+                      value={barCity}
+                      onChange={(e) => setBarCity(e.target.value)}
+                    />
+                    <Input
+                      label="State (optional)"
+                      placeholder="e.g. SP"
+                      value={barState}
+                      onChange={(e) => setBarState(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               <Input
                 label="Email"
                 type="email"
@@ -248,7 +289,7 @@ export const LandingPage: React.FC = () => {
               {signupRole !== 'CUSTOMER' && (
                 <p className="text-jb-text-secondary text-xs text-center">
                   {signupRole === 'BAR_OWNER'
-                    ? 'After signup, an admin will link your account to your venue.'
+                    ? 'Your bar will be created in pending status. An admin will review and approve it shortly.'
                     : 'You will receive a personal referral code after signup.'}
                 </p>
               )}

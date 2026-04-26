@@ -38,7 +38,7 @@ const updateVenueSchema = z.object({
   country: z.string().length(2).optional(),
   timezone: z.string().optional(),
   currency: z.string().length(3).optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   settings: z.object({
     songPrice: z.number().nonnegative().optional(),
     prioritySongPrice: z.number().nonnegative().optional(),
@@ -59,7 +59,7 @@ const pricingSchema = z.object({
 const listQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  status: z.enum(['PENDING', 'ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   search: z.string().optional(),
@@ -267,6 +267,46 @@ venueRouter.post('/', requireAuth, requireRole('ADMIN', 'EMPLOYEE'), async (req:
     if (error instanceof z.ZodError) {
       return next(new AppError(error.errors[0].message, 400));
     }
+    next(error);
+  }
+});
+
+// ============================================
+// POST /venues/:id/approve — Admin approves a PENDING venue,
+// flips status to ACTIVE, and auto-creates the first Machine if none exists.
+// ============================================
+venueRouter.post('/:id/approve', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const venueId = req.params.id as string;
+    const venue = await prisma.venue.findUnique({
+      where: { id: venueId },
+      include: { machines: { take: 1 } },
+    });
+    if (!venue) throw new AppError('Venue not found', 404);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.venue.update({
+        where: { id: venueId },
+        data: { status: 'ACTIVE', installDate: venue.installDate ?? new Date() },
+      });
+
+      let machine = venue.machines[0];
+      if (!machine) {
+        const serial = `JB-${updated.code}-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+        machine = await tx.machine.create({
+          data: {
+            venueId: updated.id,
+            name: `${updated.name} Player`,
+            serialNumber: serial,
+            status: 'OFFLINE',
+          },
+        });
+      }
+      return { venue: updated, machine };
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
     next(error);
   }
 });
