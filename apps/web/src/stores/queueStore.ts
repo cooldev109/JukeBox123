@@ -53,7 +53,11 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   venueCode: localStorage.getItem('jb_venue_code'),
   isLoading: false,
 
-  setMachineId: (id) => set({ machineId: id }),
+  setMachineId: (id) => {
+    if (id) localStorage.setItem('jb_machine_id', id);
+    else localStorage.removeItem('jb_machine_id');
+    set({ machineId: id });
+  },
 
   setVenueInfo: (name, code) => {
     if (name) localStorage.setItem('jb_venue_name', name);

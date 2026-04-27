@@ -21,12 +21,18 @@ const formatTime = (s: number) => {
  */
 export const TvView: React.FC<TvViewProps> = ({ onClose }) => {
   const { queue, nowPlaying, venueName, venueCode } = useQueueStore();
-  const item = nowPlaying?.queueItem;
-  const progress = nowPlaying?.progress;
+  // If nothing is currently PLAYING, fall back to the first PENDING song so
+  // the TV view doesn't look idle when there are queued songs waiting.
+  const playingItem = nowPlaying?.queueItem;
+  const firstPending = queue.find((q) => q.status === 'PENDING');
+  const item = playingItem || firstPending;
+  const progress = playingItem ? nowPlaying?.progress : null;
   const song = item?.song;
 
-  // Upcoming songs: exclude the currently playing one (by status or id)
-  const upcoming = queue.filter((q) => q.status !== 'PLAYING' && q.id !== item?.id).slice(0, 10);
+  // Upcoming songs: exclude whichever item we showed in Now Playing
+  const upcoming = queue
+    .filter((q) => q.status !== 'PLAYING' && q.id !== item?.id)
+    .slice(0, 10);
 
   return (
     <div className="w-full h-full bg-jb-bg-primary overflow-hidden relative">

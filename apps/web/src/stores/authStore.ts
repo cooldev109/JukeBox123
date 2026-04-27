@@ -74,6 +74,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (input) => {
     set({ isLoading: true });
     try {
+      // New account = fresh session, drop any cached venue/machine from a
+      // previous tester so the new user doesn't inherit someone else's queue.
+      localStorage.removeItem('jb_machine_id');
+      localStorage.removeItem('jb_venue_name');
+      localStorage.removeItem('jb_venue_code');
       const { data } = await api.post('/auth/register', input);
       const { user, tokens } = data.data;
       localStorage.setItem('jb_access_token', tokens.accessToken);
@@ -134,6 +139,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem('jb_access_token');
     localStorage.removeItem('jb_refresh_token');
+    // Clear cached venue/machine context so the next user doesn't inherit it
+    localStorage.removeItem('jb_machine_id');
+    localStorage.removeItem('jb_venue_name');
+    localStorage.removeItem('jb_venue_code');
     set({ user: null, isAuthenticated: false });
   },
 }));
