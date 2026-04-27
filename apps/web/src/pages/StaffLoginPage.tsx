@@ -4,9 +4,12 @@ import { motion } from 'framer-motion';
 import { Button, Input } from '@jukebox/ui';
 import { useAuthStore } from '../stores/authStore';
 import { PasswordInput } from '../components/PasswordInput';
+import { LanguageToggle } from '../components/LanguageToggle';
+import { useI18n } from '../lib/i18n';
 
 export const StaffLoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { user, isAuthenticated, login, isLoading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,13 +27,13 @@ export const StaffLoginPage: React.FC = () => {
   }, [isAuthenticated, user, navigate]);
 
   const handleLogin = async () => {
-    if (!email.trim()) { setError('Enter your email'); return; }
-    if (!password.trim()) { setError('Enter your password'); return; }
+    if (!email.trim()) { setError(t('enter_your_email')); return; }
+    if (!password.trim()) { setError(t('enter_password')); return; }
     setError('');
     try {
       const loggedInUser = await login(email, password);
       if (loggedInUser.role === 'CUSTOMER') {
-        setError('Customers should use the main page to enter a venue');
+        setError(t('back_to_venue_entry'));
         useAuthStore.getState().logout();
         return;
       }
@@ -39,7 +42,7 @@ export const StaffLoginPage: React.FC = () => {
       else if (loggedInUser.role === 'EMPLOYEE') navigate('/employee');
       else if (loggedInUser.role === 'AFFILIATE') navigate('/affiliate');
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.error || err.response?.data?.message || t('login_failed'));
     }
   };
 
@@ -47,6 +50,11 @@ export const StaffLoginPage: React.FC = () => {
     <div className="min-h-screen bg-jb-bg-primary relative overflow-hidden flex flex-col items-center justify-center px-4">
       {/* Background gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-jb-accent-purple/10 via-transparent to-jb-highlight-pink/10" />
+
+      {/* Language toggle - top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <LanguageToggle />
+      </div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
@@ -58,7 +66,7 @@ export const StaffLoginPage: React.FC = () => {
           <h1 className="text-5xl font-bold text-jb-accent-green neon-text-green mb-2">
             JukeBox
           </h1>
-          <p className="text-jb-text-secondary text-lg">Staff Login</p>
+          <p className="text-jb-text-secondary text-lg">{t('staff_login_title')}</p>
         </motion.div>
 
         <motion.div
@@ -68,19 +76,21 @@ export const StaffLoginPage: React.FC = () => {
           className="glass rounded-2xl p-6"
         >
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">Sign In</h2>
+            <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">{t('sign_in')}</h2>
             <p className="text-jb-text-secondary text-sm text-center mb-4">
-              For Admin, Bar Owner, Employee, and Affiliate accounts
+              {t('staff_login_subtitle')}
             </p>
 
             <Input
-              label="Email"
+              label={t('email')}
               type="email"
               placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
             <PasswordInput
+              label={t('password')}
+              placeholder={t('password')}
               value={password}
               onChange={setPassword}
               autoComplete="current-password"
@@ -89,14 +99,14 @@ export const StaffLoginPage: React.FC = () => {
             {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
 
             <Button variant="primary" fullWidth loading={isLoading} onClick={handleLogin}>
-              Login
+              {t('login')}
             </Button>
 
             <Link
               to="/forgot-password"
               className="block text-center text-jb-text-secondary text-xs hover:text-jb-accent-green"
             >
-              Forgot your password?
+              {t('forgot_password_link')}
             </Link>
           </div>
         </motion.div>
@@ -112,13 +122,13 @@ export const StaffLoginPage: React.FC = () => {
             to="/login?signup=BAR_OWNER"
             className="text-center bg-jb-accent-green/10 hover:bg-jb-accent-green/20 border border-jb-accent-green/30 text-jb-accent-green text-sm font-semibold rounded-lg py-2.5 transition-colors"
           >
-            Create Bar Account
+            {t('create_bar_account')}
           </Link>
           <Link
             to="/login?signup=AFFILIATE"
             className="text-center bg-jb-accent-purple/10 hover:bg-jb-accent-purple/20 border border-jb-accent-purple/30 text-jb-accent-purple text-sm font-semibold rounded-lg py-2.5 transition-colors"
           >
-            Create Affiliate Account
+            {t('create_affiliate_account')}
           </Link>
         </motion.div>
 
@@ -133,7 +143,7 @@ export const StaffLoginPage: React.FC = () => {
             to="/"
             className="text-jb-text-secondary text-xs hover:text-jb-accent-green transition-colors"
           >
-            Customer? Go back to venue entry
+            {t('back_to_venue_entry')}
           </Link>
         </motion.div>
       </div>

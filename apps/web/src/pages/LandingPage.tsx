@@ -53,27 +53,27 @@ export const LandingPage: React.FC = () => {
   }, [isAuthenticated, user, navigate, searchParams]);
 
   const handleLogin = async () => {
-    if (!email.trim()) { setError('Enter your email'); return; }
-    if (!password.trim()) { setError('Enter your password'); return; }
+    if (!email.trim()) { setError(t('enter_your_email')); return; }
+    if (!password.trim()) { setError(t('enter_password')); return; }
     setError('');
     try {
       await login(email, password, venueCode.trim() || undefined);
       const redirect = searchParams.get('redirect');
       navigate(redirect || '/browse');
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.error || err.response?.data?.message || t('login_failed'));
     }
   };
 
   const handleRegister = async () => {
-    if (!email.trim()) { setError('Enter your email'); return; }
-    if (!password.trim() || password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!email.trim()) { setError(t('enter_your_email')); return; }
+    if (!password.trim() || password.length < 6) { setError(t('password_too_short')); return; }
     if (signupRole === 'CUSTOMER' && !venueCode.trim()) {
-      setError('Enter the venue code from the QR code at the bar');
+      setError(t('enter_venue_code_err'));
       return;
     }
     if (signupRole === 'BAR_OWNER' && !barName.trim()) {
-      setError('Enter your bar name so we can create your venue');
+      setError(t('enter_bar_name_err'));
       return;
     }
     setError('');
@@ -99,7 +99,7 @@ export const LandingPage: React.FC = () => {
       // For BAR_OWNER / AFFILIATE: register already authenticated the session.
       // The role-based useEffect above will redirect to /owner or /affiliate.
     } catch (err: any) {
-      setError(err.response?.data?.error || err.response?.data?.message || 'Registration failed');
+      setError(err.response?.data?.error || err.response?.data?.message || t('registration_failed'));
     }
   };
 
@@ -133,7 +133,7 @@ export const LandingPage: React.FC = () => {
           className="text-center mb-10"
         >
           <img src="/logo.png" alt="Smart JukeBox" className="h-48 mx-auto mb-2" />
-          <p className="text-jb-text-secondary text-lg">Your music, your bar, your vibe</p>
+          <p className="text-jb-text-secondary text-lg">{t('your_music_tagline')}</p>
         </motion.div>
 
         <motion.div
@@ -172,7 +172,7 @@ export const LandingPage: React.FC = () => {
               />
               <PasswordInput
                 label={t('password')}
-                placeholder="Your password"
+                placeholder={t('password')}
                 value={password}
                 onChange={setPassword}
                 autoComplete="current-password"
@@ -185,7 +185,7 @@ export const LandingPage: React.FC = () => {
               </Button>
 
               <Link to="/forgot-password" className="block text-center text-jb-text-secondary text-xs hover:text-jb-accent-green">
-                Forgot your password?
+                {t('forgot_password_link')}
               </Link>
 
               <Button variant="ghost" fullWidth onClick={() => { setMode('register'); setError(''); }}>
@@ -206,17 +206,17 @@ export const LandingPage: React.FC = () => {
 
           {mode === 'register' && (
             <div className="space-y-4">
-              <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">Create Account</h2>
+              <h2 className="text-xl font-bold text-jb-text-primary text-center mb-2">{t('create_account_title')}</h2>
               <p className="text-jb-text-secondary text-sm text-center mb-4">
-                Choose your account type
+                {t('choose_account_type')}
               </p>
 
               {/* Role selector */}
               <div className="grid grid-cols-3 gap-2">
                 {([
-                  { key: 'CUSTOMER', label: 'Customer' },
-                  { key: 'BAR_OWNER', label: 'Bar Owner' },
-                  { key: 'AFFILIATE', label: 'Affiliate' },
+                  { key: 'CUSTOMER', labelKey: 'role_customer' },
+                  { key: 'BAR_OWNER', labelKey: 'role_bar_owner' },
+                  { key: 'AFFILIATE', labelKey: 'role_affiliate' },
                 ] as const).map((r) => (
                   <button
                     key={r.key}
@@ -228,15 +228,15 @@ export const LandingPage: React.FC = () => {
                         : 'bg-white/5 text-jb-text-secondary border-white/10 hover:border-white/20'
                     }`}
                   >
-                    {r.label}
+                    {t(r.labelKey)}
                   </button>
                 ))}
               </div>
 
               {signupRole === 'CUSTOMER' && (
                 <Input
-                  label="Venue Code"
-                  placeholder="e.g. BAR-CARLOS"
+                  label={t('venue_code_label')}
+                  placeholder={t('venue_code_placeholder_v')}
                   value={venueCode}
                   onChange={(e) => setVenueCode(e.target.value)}
                 />
@@ -244,21 +244,21 @@ export const LandingPage: React.FC = () => {
               {signupRole === 'BAR_OWNER' && (
                 <>
                   <Input
-                    label="Bar Name"
-                    placeholder="e.g. Boteco do Carlos"
+                    label={t('bar_name')}
+                    placeholder={t('bar_name_placeholder')}
                     value={barName}
                     onChange={(e) => setBarName(e.target.value)}
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <Input
-                      label="City (optional)"
-                      placeholder="e.g. Sao Paulo"
+                      label={t('city_optional')}
+                      placeholder={t('city_placeholder')}
                       value={barCity}
                       onChange={(e) => setBarCity(e.target.value)}
                     />
                     <Input
-                      label="State (optional)"
-                      placeholder="e.g. SP"
+                      label={t('state_optional')}
+                      placeholder={t('state_placeholder')}
                       value={barState}
                       onChange={(e) => setBarState(e.target.value)}
                     />
@@ -266,42 +266,40 @@ export const LandingPage: React.FC = () => {
                 </>
               )}
               <Input
-                label="Email"
+                label={t('email')}
                 type="email"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <PasswordInput
-                label="Password"
-                placeholder="At least 6 characters"
+                label={t('password')}
+                placeholder={t('password_min')}
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
               />
               <Input
-                label="Display Name (optional)"
-                placeholder="Auto-filled from email if blank"
+                label={t('display_name_optional')}
+                placeholder={t('display_name_placeholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
 
               {signupRole !== 'CUSTOMER' && (
                 <p className="text-jb-text-secondary text-xs text-center">
-                  {signupRole === 'BAR_OWNER'
-                    ? 'Your bar will be created in pending status. An admin will review and approve it shortly.'
-                    : 'You will receive a personal referral code after signup.'}
+                  {signupRole === 'BAR_OWNER' ? t('help_bar_owner') : t('help_affiliate')}
                 </p>
               )}
 
               {error && <p className="text-jb-highlight-pink text-sm text-center">{error}</p>}
 
               <Button variant="primary" fullWidth loading={isLoading} onClick={handleRegister}>
-                Create Account & Enter
+                {t('create_account_button')}
               </Button>
 
               <Button variant="ghost" fullWidth onClick={() => { setMode('login'); setError(''); }}>
-                Already have an account? Login
+                {t('back_to_login')}
               </Button>
             </div>
           )}
@@ -318,7 +316,7 @@ export const LandingPage: React.FC = () => {
             to="/staff-login"
             className="text-jb-text-secondary text-xs hover:text-jb-accent-green transition-colors"
           >
-            Staff Login (Admin / Owner / Employee / Affiliate)
+            {t('staff_login')}
           </Link>
         </motion.div>
       </div>
