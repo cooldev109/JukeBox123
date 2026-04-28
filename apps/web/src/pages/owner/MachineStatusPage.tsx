@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { QRCodeCanvas } from 'qrcode.react';
 import { Card, StatusIndicator, QueueItemComponent, MusicVisualizer } from '@jukebox/ui';
 import { useBarOwnerStore } from '../../stores/barOwnerStore';
 
@@ -28,11 +30,31 @@ export const MachineStatusPage: React.FC = () => {
     if (machine) fetchQueue();
   }, [machine]);
 
+  const isPending = (venue as any)?.status === 'PENDING';
+
+  // While the venue is pending or has no machine yet, poll the backend
+  // every 5 seconds so the dashboard flips automatically the moment an
+  // admin approves the venue and the auto-created machine appears.
+  useEffect(() => {
+    if (!isPending && machines.length > 0) return;
+    const id = setInterval(() => {
+      fetchVenue();
+      fetchMachine();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [isPending, machines.length, fetchVenue, fetchMachine]);
+
   const copyTvPlayerUrl = (machineId: string) => {
     navigator.clipboard.writeText(getTvPlayerUrl(machineId));
   };
 
-  const isPending = (venue as any)?.status === 'PENDING';
+  const copyVenueCode = () => {
+    if (venue?.code) navigator.clipboard.writeText(venue.code);
+  };
+
+  const browseUrl = venue?.code
+    ? `${window.location.origin}/browse?venue=${encodeURIComponent(venue.code)}`
+    : '';
 
   return (
     <div>
@@ -50,6 +72,52 @@ export const MachineStatusPage: React.FC = () => {
             </p>
           )}
         </div>
+      )}
+
+      {/* Quick-access card: QR code + TV player + venue code, visible
+          as soon as the venue is approved so the bar owner does not
+          need to dig through the sidebar to set up customers + TV. */}
+      {!isPending && venue?.code && (
+        <Card className="p-5 mb-6">
+          <div className="flex flex-col md:flex-row gap-5 items-center">
+            <div className="bg-white p-3 rounded-xl flex-shrink-0">
+              <QRCodeCanvas value={browseUrl} size={140} level="H" marginSize={1} />
+            </div>
+            <div className="flex-1 w-full text-center md:text-left">
+              <p className="text-jb-text-secondary text-xs uppercase tracking-wider mb-1">Venue Code</p>
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-3">
+                <span className="text-jb-accent-green text-2xl font-mono font-bold">{venue.code}</span>
+                <button
+                  onClick={copyVenueCode}
+                  className="text-jb-text-secondary text-xs hover:text-jb-accent-green underline"
+                >
+                  copy
+                </button>
+              </div>
+              <p className="text-jb-text-secondary text-sm mb-3">
+                Customers scan this QR code or enter the venue code to start adding songs.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                {machine && (
+                  <a
+                    href={getTvPlayerUrl(machine.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-jb-accent-green text-jb-bg-primary font-semibold text-sm hover:shadow-glow-green transition-all"
+                  >
+                    Open TV Player
+                  </a>
+                )}
+                <Link
+                  to="/owner/qr-code"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-jb-accent-purple/20 text-jb-accent-purple text-sm font-semibold hover:bg-jb-accent-purple/30 transition-colors"
+                >
+                  Print / Download QR
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
       {machines.length === 0 ? (

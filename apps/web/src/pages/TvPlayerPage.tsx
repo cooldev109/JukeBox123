@@ -108,6 +108,7 @@ export const TvPlayerPage: React.FC = () => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
+  const [needsUserGesture, setNeedsUserGesture] = React.useState(false);
   const { login } = useAuthStore();
 
   const [searchParams] = useSearchParams();
@@ -154,9 +155,16 @@ export const TvPlayerPage: React.FC = () => {
     if (!audioUrl) return;
     audio.src = audioUrl;
     audio.volume = volume / 100;
-    audio.play().catch((err) => {
-      console.error('Audio play failed:', err.message, '| URL:', audioUrl);
-    });
+    audio.play()
+      .then(() => setNeedsUserGesture(false))
+      .catch((err) => {
+        // Most common cause: browser autoplay policy — needs a user gesture.
+        // Surface this so the bar staff knows to tap the screen once.
+        console.error('Audio play failed:', err.message, '| URL:', audioUrl);
+        if (err && (err.name === 'NotAllowedError' || /gesture|interact/i.test(err.message))) {
+          setNeedsUserGesture(true);
+        }
+      });
     setIsPlaying(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItem?.id]);
@@ -251,7 +259,9 @@ export const TvPlayerPage: React.FC = () => {
   const handleUserInteraction = useCallback(() => {
     const audio = audioRef.current;
     if (audio && audio.paused && currentItem) {
-      audio.play().catch(() => {});
+      audio.play().then(() => setNeedsUserGesture(false)).catch(() => {});
+    } else if (audio) {
+      setNeedsUserGesture(false);
     }
     document.documentElement.requestFullscreen?.();
   }, [currentItem]);
@@ -646,6 +656,24 @@ export const TvPlayerPage: React.FC = () => {
 
       {/* Special Event Overlays */}
       <EventOverlay onMuteAudio={handleMuteAudio} onUnmuteAudio={handleUnmuteAudio} />
+
+      {/* Browser autoplay block — show until the user taps anywhere */}
+      {needsUserGesture && currentItem && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 cursor-pointer"
+          onClick={handleUserInteraction}
+        >
+          <div className="text-center px-6">
+            <div className="text-7xl mb-4">{'🔊'}</div>
+            <p className="text-3xl md:text-5xl font-bold text-jb-accent-green mb-3 neon-text-green">
+              Tap to start playback
+            </p>
+            <p className="text-jb-text-secondary text-base md:text-lg">
+              Your browser blocked autoplay — tap anywhere to enable sound.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
