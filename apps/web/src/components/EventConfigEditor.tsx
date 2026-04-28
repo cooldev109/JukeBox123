@@ -9,7 +9,7 @@ interface EventConfig {
   voiceMessage: { enabled: boolean; options: { duration: number; price: number }[]; requiresApproval: boolean };
   photo: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number; displayMode?: 'corner' | 'fullscreen' };
   video: { enabled: boolean; price: number; requiresApproval: boolean; displayDuration: number; displayMode?: 'corner' | 'fullscreen'; maxDuration: number };
-  reaction: { enabled: boolean; price: number; types: string[] };
+  reaction: { enabled: boolean; price: number; types: string[]; displayDuration?: number };
   birthday: { enabled: boolean; price: number; displayDuration?: number; displayMode?: 'corner' | 'fullscreen' };
 }
 
@@ -344,13 +344,26 @@ export const EventConfigEditor: React.FC<EventConfigEditorProps> = ({ venueId })
             Enabled
           </label>
         </div>
-        <Input
-          label="Price per reaction (R$)"
-          type="number"
-          step="0.01"
-          value={String(config.reaction.price)}
-          onChange={(e) => setConfig({ ...config, reaction: { ...config.reaction, price: parseFloat(e.target.value) || 0 } })}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Price per reaction (R$)"
+            type="number"
+            step="0.01"
+            value={String(config.reaction.price)}
+            onChange={(e) => setConfig({ ...config, reaction: { ...config.reaction, price: parseFloat(e.target.value) || 0 } })}
+          />
+          <Input
+            label="Display Duration (seconds)"
+            type="number"
+            min="1"
+            max="600"
+            value={String(config.reaction.displayDuration ?? 4)}
+            onChange={(e) => setConfig({ ...config, reaction: { ...config.reaction, displayDuration: parseInt(e.target.value) || 4 } })}
+          />
+        </div>
+        <p className="text-jb-text-secondary text-xs mt-2">
+          How long the reaction emojis stay on the TV screen. Default: 4 seconds. Max: 600 seconds.
+        </p>
       </Card>
 
       {/* Birthday */}

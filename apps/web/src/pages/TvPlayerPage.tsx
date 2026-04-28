@@ -238,7 +238,7 @@ export const TvPlayerPage: React.FC = () => {
       queueEvent({ type: 'video', ...data });
     });
     socket.on('event:reaction', (data: any) => {
-      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName });
+      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName, duration: data.duration });
     });
     socket.on('event:birthday', (data: any) => {
       queueEvent({ type: 'birthday', ...data });

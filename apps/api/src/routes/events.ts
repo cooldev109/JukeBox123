@@ -39,6 +39,7 @@ const DEFAULT_EVENT_CONFIG = {
   reaction: {
     enabled: true,
     price: 1.0,
+    displayDuration: 4,
     types: ['APPLAUSE', 'BOO', 'LAUGH', 'HEART', 'FIRE'],
   },
   birthday: { enabled: true, price: 25.0, displayDuration: 86400, displayMode: 'corner' as 'corner' | 'fullscreen' },
@@ -756,6 +757,7 @@ eventRouter.post(
         eventId: result.event.id,
         type: data.reactionType,
         userName: user?.name,
+        duration: (config.reaction as any).displayDuration ?? 4,
       });
 
       res.status(201).json({

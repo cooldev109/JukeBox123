@@ -42,6 +42,7 @@ interface ReactionEvent {
   type: 'reaction';
   reactionType: string;
   userName?: string;
+  duration?: number;
 }
 
 interface BirthdayEvent {
@@ -200,7 +201,7 @@ export const EventOverlay: React.FC<EventOverlayProps> = ({ onMuteAudio, onUnmut
         onMuteAudio?.();
         break;
       case 'reaction':
-        duration = 4000;
+        duration = ((activeEvent as ReactionEvent).duration || 4) * 1000;
         break;
       case 'birthday':
         // Use duration from event (default 86400s = 24h for corner, 15s for fullscreen)

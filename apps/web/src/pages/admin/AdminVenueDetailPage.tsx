@@ -503,8 +503,11 @@ export const AdminVenueDetailPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-jb-text-primary">Venue Products & Pricing</h3>
           </div>
           <p className="text-jb-text-secondary text-sm">
-            Products available at <span className="text-jb-accent-green">{venue.name}</span>. Venue prices override base prices.
+            Edit a price to override the base price for <span className="text-jb-accent-green">{venue.name}</span>. Click outside the input to save.
           </p>
+          <div className="bg-jb-accent-purple/10 border border-jb-accent-purple/30 rounded-lg p-3 text-xs text-jb-text-secondary">
+            <strong className="text-jb-accent-purple">Note:</strong> Special-event prices and durations (silence, voice message, photo, video, reaction, birthday) are configured separately in the <button onClick={() => setTab('settings')} className="text-jb-accent-green underline">Settings tab</button> below the pricing card.
+          </div>
 
           {venueProductsLoading ? (
             <div className="space-y-2">
@@ -513,34 +516,10 @@ export const AdminVenueDetailPage: React.FC = () => {
               ))}
             </div>
           ) : venueProducts.length === 0 ? (
-            <div className="space-y-4">
-              <Card className="p-8 text-center">
-                <p className="text-jb-text-secondary mb-2">No products loaded yet</p>
-                <p className="text-jb-text-secondary/60 text-sm">Configure products in the global Products page first.</p>
-              </Card>
-              {/* Fallback: show analytics product prices */}
-              {productPrices.length > 0 && (
-                <>
-                  <h4 className="text-jb-text-primary font-medium">Price Overrides</h4>
-                  <div className="space-y-2">
-                    {productPrices.map(pp => (
-                      <Card key={pp.id} className="p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-jb-text-primary text-sm font-medium">{pp.product.name}</p>
-                          <p className="text-jb-text-secondary text-xs">{pp.product.code} | {pp.product.category}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-jb-accent-green font-bold">{fmt(pp.price)}</p>
-                          {pp.price !== pp.product.basePrice && (
-                            <p className="text-jb-text-secondary text-xs line-through">{fmt(pp.product.basePrice)}</p>
-                          )}
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <Card className="p-8 text-center">
+              <p className="text-jb-text-secondary mb-2">No products loaded yet</p>
+              <p className="text-jb-text-secondary/60 text-sm">Add products in the global <button onClick={() => navigate('/admin/products')} className="text-jb-accent-green underline">Products page</button> first.</p>
+            </Card>
           ) : (
             <div className="space-y-2">
               {['MUSIC', 'SPECIAL_EVENT', 'COMBO'].map(cat => {
@@ -552,18 +531,12 @@ export const AdminVenueDetailPage: React.FC = () => {
                       {cat === 'MUSIC' ? 'Music' : cat === 'SPECIAL_EVENT' ? 'Special Events' : 'Combos'}
                     </h4>
                     {catProducts.map(p => (
-                      <Card key={p.id} className="p-3 flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-jb-text-primary text-sm font-medium">{p.name}</p>
-                          <p className="text-jb-text-secondary text-xs">{p.code}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-jb-accent-green font-bold">{fmt(p.venuePrice ?? p.basePrice)}</p>
-                          {p.venuePrice != null && p.venuePrice !== p.basePrice && (
-                            <p className="text-jb-text-secondary text-xs line-through">{fmt(p.basePrice)}</p>
-                          )}
-                        </div>
-                      </Card>
+                      <VenueProductPriceRow
+                        key={p.id}
+                        product={p}
+                        venueId={id!}
+                        onSaved={(newPrice) => setVenueProducts(prev => prev.map(x => x.id === p.id ? { ...x, venuePrice: newPrice } : x))}
+                      />
                     ))}
                   </div>
                 );
@@ -837,5 +810,65 @@ export const AdminVenueDetailPage: React.FC = () => {
         </div>
       </Modal>
     </div>
+  );
+};
+
+// ============================================
+// Inline editor for a single venue-specific product price.
+// Saves on blur via PUT /products/venue/:venueId/prices.
+// ============================================
+interface VenueProductPriceRowProps {
+  product: VenueProduct;
+  venueId: string;
+  onSaved: (newPrice: number) => void;
+}
+
+const VenueProductPriceRow: React.FC<VenueProductPriceRowProps> = ({ product, venueId, onSaved }) => {
+  const initial = product.venuePrice ?? product.basePrice;
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (newVal: number) => {
+    if (isNaN(newVal) || newVal < 0) return;
+    if (newVal === initial) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.put(`/products/venue/${venueId}/prices`, {
+        prices: [{ productId: product.id, price: newVal, isActive: true }],
+      });
+      onSaved(newVal);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="p-3 mb-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-jb-text-primary text-sm font-medium truncate">{product.name}</p>
+          <p className="text-jb-text-secondary text-xs truncate">{product.code}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-jb-text-secondary text-xs">R$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={initial}
+            onBlur={(e) => save(parseFloat(e.target.value))}
+            className="w-24 bg-jb-bg-secondary border border-white/10 rounded px-2 py-1 text-jb-text-primary text-right focus:outline-none focus:border-jb-accent-green"
+          />
+          {product.venuePrice != null && product.venuePrice !== product.basePrice && (
+            <span className="text-jb-text-secondary text-xs line-through whitespace-nowrap">R$ {product.basePrice.toFixed(2)}</span>
+          )}
+          {saving && <span className="text-jb-accent-purple text-xs">saving...</span>}
+        </div>
+      </div>
+      {error && <p className="text-jb-highlight-pink text-xs mt-2">{error}</p>}
+    </Card>
   );
 };

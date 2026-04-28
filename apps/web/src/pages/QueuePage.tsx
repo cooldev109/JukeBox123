@@ -119,7 +119,7 @@ export const QueuePage: React.FC = () => {
       pushHistory({ type: 'video', videoUrl: data.videoUrl, userName: data.userName });
     });
     socket.on('event:reaction', (data: any) => {
-      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName });
+      queueEvent({ type: 'reaction', reactionType: data.type, userName: data.userName, duration: data.duration });
       pushHistory({ type: 'reaction', reactionType: data.type, userName: data.userName });
     });
     socket.on('event:birthday', (data: any) => {
