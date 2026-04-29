@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Input } from '@jukebox/ui';
 import { useBarOwnerStore } from '../../stores/barOwnerStore';
+import { EventConfigEditor } from '../../components/EventConfigEditor';
 import { api } from '../../lib/api';
 
 interface VenueProduct {
@@ -332,6 +333,18 @@ export const OwnerSettingsPage: React.FC = () => {
             </div>
           )}
         </Card>
+
+        {/* Special Events Configuration — same source of truth as admin
+            (PUT /events/config/venue/:id), so admin and bar owner stay in sync. */}
+        {venue?.id && (
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-jb-text-primary mb-2">Special Events</h3>
+            <p className="text-jb-text-secondary text-sm mb-4">
+              Prices and durations for silence, voice messages, photos, videos, reactions and birthdays at your venue. Changes here are also visible to admins and vice-versa.
+            </p>
+            <EventConfigEditor venueId={venue.id} />
+          </Card>
+        )}
       </div>
     </div>
   );

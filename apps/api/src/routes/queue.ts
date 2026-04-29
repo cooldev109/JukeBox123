@@ -25,9 +25,40 @@ const reorderQueueSchema = z.object({
 });
 
 // ============================================
+// Helper: Sweep stale PLAYING items.
+// If a song has been PLAYING longer than (its duration + 60s buffer)
+// the TV must have crashed or been closed mid-song — mark it PLAYED so
+// the queue advances on the next fetch. This prevents the customer
+// experience of a song restarting from the beginning when the TV
+// reopens hours after that song already finished.
+// ============================================
+async function sweepStalePlaying(machineId: string) {
+  const stalePlaying = await prisma.queueItem.findMany({
+    where: { machineId, status: 'PLAYING' },
+    include: { song: { select: { duration: true } } },
+  });
+  const now = Date.now();
+  const stale: string[] = [];
+  for (const item of stalePlaying) {
+    if (!item.playedAt) continue;
+    const songDurationMs = (item.song?.duration || 240) * 1000;
+    const elapsed = now - item.playedAt.getTime();
+    // 60s buffer to absorb minor clock skew + special-event silences
+    if (elapsed > songDurationMs + 60_000) stale.push(item.id);
+  }
+  if (stale.length > 0) {
+    await prisma.queueItem.updateMany({
+      where: { id: { in: stale } },
+      data: { status: 'PLAYED' },
+    });
+  }
+}
+
+// ============================================
 // Helper: Fetch full queue for a machine
 // ============================================
 async function getFullQueue(machineId: string) {
+  await sweepStalePlaying(machineId);
   return prisma.queueItem.findMany({
     where: {
       machineId,
@@ -484,6 +515,7 @@ queueRouter.post('/:id/queue/advance', async (req: Request, res: Response, next:
     const machineId = req.params.id as string;
 
     await findMachineOrThrow(machineId);
+    await sweepStalePlaying(machineId);
 
     // Find the currently playing item
     const currentlyPlaying = await prisma.queueItem.findFirst({
@@ -606,6 +638,7 @@ queueRouter.get('/:id/now-playing', async (req: Request, res: Response, next: Ne
     const machineId = req.params.id as string;
 
     await findMachineOrThrow(machineId);
+    await sweepStalePlaying(machineId);
 
     const nowPlaying = await prisma.queueItem.findFirst({
       where: {
