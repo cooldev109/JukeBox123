@@ -50,3 +50,9 @@ tmp/
 temp/
 *.tmp.*
 *.timestamp-*
+
+# Uploaded media (served from disk, not source)
+apps/api/uploads/
+
+# Project uses npm (package-lock.json)
+pnpm-lock.yaml

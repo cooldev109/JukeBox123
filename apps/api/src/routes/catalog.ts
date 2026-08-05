@@ -5,6 +5,9 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { searchCatalog, importSongs, autoPopulateCatalog, handleSongRequest, searchYouTube, downloadAndImportFromYouTube } from '../services/catalogBot.js';
 import { searchSpotify } from '../services/spotifySearch.js';
+import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
 
 export const catalogRouter = Router();
 
@@ -262,22 +265,24 @@ catalogRouter.get(
 // ============================================
 
 // --- Validation schemas ---
+// coverArtUrl accepts a relative upload path (e.g. /uploads/covers/x.jpg)
+// as well as an absolute URL, so admin-uploaded covers are allowed.
 const genreSchema = z.object({
   name: z.string().min(1).max(100),
-  coverArtUrl: z.string().url().optional(),
+  coverArtUrl: z.string().max(500).optional().nullable(),
   sortOrder: z.number().int().optional(),
 });
 
 const artistSchema = z.object({
   name: z.string().min(1).max(100),
   genreId: z.string().uuid(),
-  coverArtUrl: z.string().url().optional(),
+  coverArtUrl: z.string().max(500).optional().nullable(),
 });
 
 const albumSchema = z.object({
   name: z.string().min(1).max(100),
   artistId: z.string().uuid(),
-  coverArtUrl: z.string().url().optional(),
+  coverArtUrl: z.string().max(500).optional().nullable(),
   year: z.number().int().min(1900).max(2100).optional(),
 });
 
@@ -412,14 +417,93 @@ catalogRouter.put('/genres/:id', requireAuth, requireRole('ADMIN'), async (req: 
   }
 });
 
+// --- PUT /catalog/artists/:id (admin — rename / re-file / set cover) ---
+catalogRouter.put('/artists/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const existing = await prisma.artist.findUnique({ where: { id: req.params.id as string } });
+    if (!existing) throw new AppError('Artist not found', 404);
+
+    const data = artistSchema.partial().parse(req.body);
+    const artist = await prisma.artist.update({ where: { id: req.params.id as string }, data });
+    res.json({ success: true, data: { artist } });
+  } catch (err) {
+    if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+    next(err);
+  }
+});
+
+// --- PUT /catalog/albums/:id (admin — rename / set cover / year) ---
+catalogRouter.put('/albums/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const existing = await prisma.album.findUnique({ where: { id: req.params.id as string } });
+    if (!existing) throw new AppError('Album not found', 404);
+
+    const data = albumSchema.partial().parse(req.body);
+    const album = await prisma.album.update({ where: { id: req.params.id as string }, data });
+    res.json({ success: true, data: { album } });
+  } catch (err) {
+    if (err instanceof z.ZodError) return next(new AppError(err.errors[0].message, 400));
+    next(err);
+  }
+});
+
+// --- POST /catalog/upload-image (admin) — save a cover image, return its URL ---
+catalogRouter.post('/upload-image', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { file } = req.body as { file?: string };
+    if (!file || typeof file !== 'string') {
+      throw new AppError('File (base64-encoded image) is required', 400);
+    }
+
+    // Accept optional data-URI prefix (data:image/png;base64,....)
+    const match = file.match(/^data:(image\/(png|jpe?g|webp));base64,(.*)$/);
+    const base64 = match ? match[3] : file;
+    const mime = match ? match[1] : 'image/jpeg';
+    const buffer = Buffer.from(base64 as string, 'base64');
+
+    if (buffer.length > 5 * 1024 * 1024) {
+      throw new AppError('Image too large. Max 5MB', 400);
+    }
+
+    const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+    const coversDir = path.join(process.cwd(), 'uploads', 'covers');
+    if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
+    const name = `${crypto.randomUUID()}.${ext}`;
+    fs.writeFileSync(path.join(coversDir, name), buffer);
+
+    res.status(201).json({ success: true, data: { url: `/uploads/covers/${name}` } });
+  } catch (err) {
+    if (err instanceof AppError) return next(err);
+    next(err);
+  }
+});
+
 // --- DELETE /catalog/genres/:id (admin, soft-delete) ---
 catalogRouter.delete('/genres/:id', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const existing = await prisma.genre.findUnique({ where: { id: req.params.id as string } });
     if (!existing) throw new AppError('Genre not found', 404);
 
+    // Move any songs tagged with this genre into "Other" so they stay reachable
+    // instead of vanishing from the curated customer genre list.
+    const moved = await prisma.song.updateMany({
+      where: { genre: existing.name },
+      data: { genre: 'Other' },
+    });
+    if (moved.count > 0) {
+      const other = await prisma.genre.findUnique({ where: { name: 'Other' } });
+      if (!other) {
+        await prisma.genre.create({ data: { name: 'Other' } });
+      } else if (!other.isActive) {
+        await prisma.genre.update({ where: { id: other.id }, data: { isActive: true } });
+      }
+    }
+
     await prisma.genre.update({ where: { id: req.params.id as string }, data: { isActive: false } });
-    res.json({ success: true, message: 'Genre deactivated' });
+    res.json({
+      success: true,
+      message: `Genre deactivated${moved.count ? `, ${moved.count} song(s) moved to Other` : ''}`,
+    });
   } catch (err) { next(err); }
 });
 

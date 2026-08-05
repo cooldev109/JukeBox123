@@ -5,8 +5,16 @@ import { api } from '../../lib/api';
 
 type FileStatus = 'pending' | 'uploading' | 'success' | 'failed' | 'skipped';
 
+interface Placement {
+  genre?: string;
+  artist?: string;
+  album?: string;
+}
+
 interface FileItem {
   file: File;
+  relPath?: string;
+  placement: Placement;
   status: FileStatus;
   message?: string;
   progress?: number;
@@ -30,11 +38,34 @@ const STATUS_LABEL: Record<FileStatus, string> = {
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
+/**
+ * Derive where a song should be filed from its folder path.
+ * Uses the LAST up to 3 folders as Genre / Artist / Album (left → right),
+ * so an organised tree like  Genero/Artista/Album/musica.mp3  lands correctly
+ * even if wrapped in extra parent folders.
+ */
+function derivePlacement(relPath?: string): Placement {
+  if (!relPath) return {};
+  const parts = relPath.split('/').filter(Boolean);
+  const folders = parts.slice(0, -1); // drop the filename
+  const chain = folders.slice(-3); // last up to 3 folders
+  if (chain.length >= 3) return { genre: chain[0], artist: chain[1], album: chain[2] };
+  if (chain.length === 2) return { genre: chain[0], artist: chain[1] };
+  if (chain.length === 1) return { genre: chain[0] };
+  return {};
+}
+
+const placementLabel = (p: Placement): string => {
+  const parts = [p.genre, p.artist, p.album].filter(Boolean);
+  return parts.length ? parts.join(' › ') : '—';
+};
+
 export const BulkUploadPage: React.FC = () => {
   const [items, setItems] = useState<FileItem[]>([]);
   const [running, setRunning] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const cancelRef = useRef(false);
 
   const addFiles = useCallback((files: ArrayLike<File>) => {
@@ -44,10 +75,22 @@ export const BulkUploadPage: React.FC = () => {
     );
     if (mp3s.length === 0) return;
     setItems((prev) => {
-      const existingNames = new Set(prev.map((p) => p.file.name + '_' + p.file.size));
+      const key = (f: File) =>
+        ((f as unknown as { webkitRelativePath?: string }).webkitRelativePath || f.name) +
+        '_' +
+        f.size;
+      const existingNames = new Set(prev.map((p) => key(p.file)));
       const newOnes: FileItem[] = mp3s
-        .filter((f) => !existingNames.has(f.name + '_' + f.size))
-        .map((f) => ({ file: f, status: 'pending' as FileStatus }));
+        .filter((f) => !existingNames.has(key(f)))
+        .map((f) => {
+          const relPath = (f as unknown as { webkitRelativePath?: string }).webkitRelativePath || undefined;
+          return {
+            file: f,
+            relPath,
+            placement: derivePlacement(relPath),
+            status: 'pending' as FileStatus,
+          };
+        });
       return [...prev, ...newOnes];
     });
   }, []);
@@ -55,6 +98,11 @@ export const BulkUploadPage: React.FC = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) addFiles(e.target.files);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) addFiles(e.target.files);
+    if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -127,12 +175,17 @@ export const BulkUploadPage: React.FC = () => {
 
         const { data } = await api.post('/songs/upload', {
           file: base64,
+          filename: item.file.name,
+          // Folder-derived placement (undefined for loose files → ID3 tags win)
+          genre: item.placement.genre,
+          artist: item.placement.artist,
+          album: item.placement.album,
         });
 
         const song = data?.data?.song;
         updateItem(i, {
           status: 'success',
-          message: song ? `${song.title} - ${song.artist}` : 'Uploaded',
+          message: song ? `${song.title} — ${song.artist}` : 'Uploaded',
         });
       } catch (err: any) {
         const msg = err.response?.data?.error || err.message || 'Upload failed';
@@ -159,6 +212,7 @@ export const BulkUploadPage: React.FC = () => {
     {} as Record<FileStatus, number>
   );
   const pendingCount = (stats.pending || 0) + (stats.failed || 0);
+  const hasFolders = items.some((it) => it.relPath);
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -170,8 +224,10 @@ export const BulkUploadPage: React.FC = () => {
 
       <h2 className="text-2xl font-bold text-jb-text-primary mb-2">Bulk Upload Songs</h2>
       <p className="text-jb-text-secondary text-sm mb-6">
-        Drag and drop MP3 files (or click to choose) to import many songs at once. Title, artist, album,
-        and genre are read automatically from each file's ID3 tags. Max 50MB per file.
+        Drop individual MP3 files, or choose a whole folder organised as{' '}
+        <span className="text-jb-text-primary">Genre / Artist / Album</span> and each song is filed
+        into the right place automatically. Title, artist, album, cover art and duration are read
+        from each file. Max 50MB per file.
       </p>
 
       {/* Drop zone */}
@@ -179,12 +235,11 @@ export const BulkUploadPage: React.FC = () => {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onClick={() => !running && fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
+        className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all ${
           dragOver
             ? 'border-jb-accent-green bg-jb-accent-green/10'
-            : 'border-white/20 bg-jb-bg-secondary/30 hover:border-jb-accent-purple'
-        } ${running ? 'opacity-50 cursor-not-allowed' : ''}`}
+            : 'border-white/20 bg-jb-bg-secondary/30'
+        } ${running ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input
           ref={fileInputRef}
@@ -195,13 +250,28 @@ export const BulkUploadPage: React.FC = () => {
           className="hidden"
           disabled={running}
         />
-        <div className="text-5xl mb-3">{'\uD83C\uDFB5'}</div>
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          onChange={handleFolderSelect}
+          className="hidden"
+          disabled={running}
+          {...({ webkitdirectory: '', directory: '' } as any)}
+        />
+        <div className="text-5xl mb-3">{'🎵'}</div>
         <p className="text-jb-text-primary font-medium mb-1">
-          {dragOver ? 'Drop files here' : 'Drop MP3 files here, or click to choose'}
+          {dragOver ? 'Drop files here' : 'Drop MP3 files here'}
         </p>
-        <p className="text-jb-text-secondary text-sm">
-          You can select multiple files at once
-        </p>
+        <p className="text-jb-text-secondary text-sm mb-4">or choose files / a folder to upload</p>
+        <div className="flex gap-2 justify-center flex-wrap">
+          <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()} disabled={running}>
+            Choose files
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => folderInputRef.current?.click()} disabled={running}>
+            {'📁'} Choose folder
+          </Button>
+        </div>
       </div>
 
       {/* Stats summary */}
@@ -260,7 +330,11 @@ export const BulkUploadPage: React.FC = () => {
                 <tr>
                   <th className="text-left px-4 py-2 text-jb-text-secondary font-normal">#</th>
                   <th className="text-left px-4 py-2 text-jb-text-secondary font-normal">File</th>
-                  <th className="text-left px-4 py-2 text-jb-text-secondary font-normal">Size</th>
+                  {hasFolders && (
+                    <th className="text-left px-4 py-2 text-jb-text-secondary font-normal">
+                      Filed under
+                    </th>
+                  )}
                   <th className="text-left px-4 py-2 text-jb-text-secondary font-normal">Status</th>
                   <th className="text-left px-4 py-2 text-jb-text-secondary font-normal">Details</th>
                   <th className="px-4 py-2"></th>
@@ -270,12 +344,14 @@ export const BulkUploadPage: React.FC = () => {
                 {items.map((item, idx) => (
                   <tr key={idx} className="border-t border-white/5 hover:bg-white/5">
                     <td className="px-4 py-2 text-jb-text-secondary">{idx + 1}</td>
-                    <td className="px-4 py-2 text-jb-text-primary truncate max-w-xs" title={item.file.name}>
+                    <td className="px-4 py-2 text-jb-text-primary truncate max-w-xs" title={item.relPath || item.file.name}>
                       {item.file.name}
                     </td>
-                    <td className="px-4 py-2 text-jb-text-secondary whitespace-nowrap">
-                      {(item.file.size / (1024 * 1024)).toFixed(1)} MB
-                    </td>
+                    {hasFolders && (
+                      <td className="px-4 py-2 text-jb-accent-purple text-xs truncate max-w-xs" title={placementLabel(item.placement)}>
+                        {placementLabel(item.placement)}
+                      </td>
+                    )}
                     <td className={`px-4 py-2 ${STATUS_COLORS[item.status]} whitespace-nowrap`}>
                       {item.status === 'uploading' && (
                         <span className="inline-block w-3 h-3 mr-2 border-2 border-jb-accent-purple border-t-transparent rounded-full animate-spin" />

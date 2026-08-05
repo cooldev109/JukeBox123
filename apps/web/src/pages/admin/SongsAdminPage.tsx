@@ -12,7 +12,34 @@ type CatalogView = 'genres' | 'artists' | 'albums' | 'songs' | 'flat';
 interface Genre { id: string; name: string; coverArtUrl?: string; sortOrder?: number; isActive: boolean; _count?: { artists: number } }
 interface Artist { id: string; name: string; genreId: string; coverArtUrl?: string; isActive: boolean; _count?: { albums: number } }
 interface Album { id: string; name: string; artistId: string; coverArtUrl?: string; year?: number; isActive: boolean; _count?: { songs: number } }
-interface CatalogSong { id: string; title: string; artist: string; album: string; genre: string; duration: number; trackNumber?: number; isActive: boolean }
+interface CatalogSong { id: string; title: string; artist: string; album: string; genre: string; duration: number; trackNumber?: number; coverArtUrl?: string; isActive: boolean }
+
+// Small square cover thumbnail with a music-note placeholder
+const Cover: React.FC<{ url?: string | null; size?: number }> = ({ url, size = 44 }) => (
+  <div
+    className="rounded-lg bg-jb-bg-secondary/70 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0"
+    style={{ width: size, height: size }}
+  >
+    {url ? (
+      <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+    ) : (
+      <span className="text-jb-text-secondary/60 text-lg">{'🎵'}</span>
+    )}
+  </div>
+);
+
+// Pencil (edit) icon button
+const EditBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    onClick={(e) => { e.stopPropagation(); onClick(); }}
+    className="opacity-60 hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-jb-accent-green/10 text-jb-text-secondary hover:text-jb-accent-green"
+    title="Edit"
+  >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  </button>
+);
 
 export const SongsAdminPage: React.FC = () => {
   const { songs, isLoading: flatLoading, fetchSongs } = useAdminStore();
@@ -55,6 +82,17 @@ export const SongsAdminPage: React.FC = () => {
   const [albumForm, setAlbumForm] = useState({ name: '', year: new Date().getFullYear() });
   const [songForm, setSongForm] = useState({ title: '', artist: '', album: '', genre: 'Pop', duration: 180 });
   const [batchForm, setBatchForm] = useState({ genre: '', artist: '', album: '', songs: '' });
+
+  // Edit (rename / cover) state — shared modal for genre | artist | album
+  const [editType, setEditType] = useState<null | 'genre' | 'artist' | 'album'>(null);
+  const [editTarget, setEditTarget] = useState<Genre | Artist | Album | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; year?: number; coverArtUrl?: string | null }>({ name: '' });
+  const [coverUploading, setCoverUploading] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Per-song edit (move genre / rename)
+  const [showEditSong, setShowEditSong] = useState(false);
+  const [songEditForm, setSongEditForm] = useState<{ id: string; title: string; artist: string; album: string; genre: string }>({ id: '', title: '', artist: '', album: '', genre: '' });
 
   // Load genres on mount
   useEffect(() => { loadGenres(); }, []);
@@ -311,6 +349,95 @@ export const SongsAdminPage: React.FC = () => {
     try { await api.delete(`/songs/${id}`); if (view === 'flat') fetchSongs({ search }); else if (selectedAlbum) loadAlbumSongs(selectedAlbum); } catch { /* */ }
   };
 
+  // --- Edit (rename + cover) handlers ---
+  const openEdit = (type: 'genre' | 'artist' | 'album', target: Genre | Artist | Album) => {
+    setEditType(type);
+    setEditTarget(target);
+    setEditForm({
+      name: target.name,
+      year: (target as Album).year,
+      coverArtUrl: target.coverArtUrl ?? null,
+    });
+    setFormError('');
+  };
+
+  const closeEdit = () => {
+    setEditType(null);
+    setEditTarget(null);
+    if (coverInputRef.current) coverInputRef.current.value = '';
+  };
+
+  const handleCoverFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { setFormError('Image too large (max 5MB)'); return; }
+    setCoverUploading(true); setFormError('');
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new window.FileReader();
+        r.onloadend = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error('read failed'));
+        r.readAsDataURL(f);
+      });
+      const { data } = await api.post('/catalog/upload-image', { file: base64 });
+      setEditForm(p => ({ ...p, coverArtUrl: data.data.url }));
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || 'Cover upload failed');
+    }
+    setCoverUploading(false);
+    if (coverInputRef.current) coverInputRef.current.value = '';
+  };
+
+  const openEditSong = (s: { id: string; title: string; artist: string; album?: string; genre?: string }) => {
+    setSongEditForm({ id: s.id, title: s.title, artist: s.artist, album: s.album || '', genre: s.genre || '' });
+    setFormError('');
+    setShowEditSong(true);
+  };
+
+  const handleSaveSong = async () => {
+    if (!songEditForm.title.trim() || !songEditForm.artist.trim()) {
+      setFormError('Title and artist are required');
+      return;
+    }
+    setSaving(true); setFormError('');
+    try {
+      await api.put(`/songs/${songEditForm.id}`, {
+        title: songEditForm.title.trim(),
+        artist: songEditForm.artist.trim(),
+        album: songEditForm.album.trim() || null,
+        genre: songEditForm.genre.trim() || 'Other',
+      });
+      setShowEditSong(false);
+      if (view === 'flat') fetchSongs({ search });
+      else if (selectedAlbum) loadAlbumSongs(selectedAlbum);
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || 'Failed to save song');
+    }
+    setSaving(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editType || !editTarget) return;
+    if (!editForm.name.trim()) { setFormError('Name is required'); return; }
+    setSaving(true); setFormError('');
+    try {
+      const body: Record<string, unknown> = {
+        name: editForm.name.trim(),
+        coverArtUrl: editForm.coverArtUrl || null,
+      };
+      if (editType === 'album' && editForm.year) body.year = editForm.year;
+      await api.put(`/catalog/${editType}s/${editTarget.id}`, body);
+      const t = editType;
+      closeEdit();
+      if (t === 'genre') loadGenres();
+      else if (t === 'artist' && selectedGenre) loadArtists(selectedGenre);
+      else if (t === 'album' && selectedArtist) loadAlbums(selectedArtist);
+    } catch (err: any) {
+      setFormError(err.response?.data?.error || 'Failed to save changes');
+    }
+    setSaving(false);
+  };
+
   const isAnyLoading = loading || flatLoading;
 
   return (
@@ -411,20 +538,26 @@ export const SongsAdminPage: React.FC = () => {
               <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-3">
                 {genres.map(g => (
                   <Card key={g.id} className="p-4 cursor-pointer hover:border-jb-accent-purple/30 transition-colors group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0" onClick={() => loadArtists(g)}>
-                        <p className="text-jb-text-primary font-medium text-lg">{g.name}</p>
-                        <p className="text-jb-text-secondary text-xs">{g._count?.artists ?? 0} artists</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => loadArtists(g)}>
+                        <Cover url={g.coverArtUrl} />
+                        <div className="min-w-0">
+                          <p className="text-jb-text-primary font-medium text-lg truncate">{g.name}</p>
+                          <p className="text-jb-text-secondary text-xs">{g._count?.artists ?? 0} artists</p>
+                        </div>
                       </div>
+                      <div className="flex items-center gap-0.5">
+                      <EditBtn onClick={() => openEdit('genre', g)} />
                       <button
                         onClick={() => handleDeleteGenre(g.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
+                        className="opacity-60 hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
                         title="Deactivate"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -440,20 +573,26 @@ export const SongsAdminPage: React.FC = () => {
               <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-3">
                 {artists.map(a => (
                   <Card key={a.id} className="p-4 cursor-pointer hover:border-jb-accent-purple/30 transition-colors group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0" onClick={() => loadAlbums(a)}>
-                        <p className="text-jb-text-primary font-medium">{a.name}</p>
-                        <p className="text-jb-text-secondary text-xs">{a._count?.albums ?? 0} albums</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => loadAlbums(a)}>
+                        <Cover url={a.coverArtUrl} />
+                        <div className="min-w-0">
+                          <p className="text-jb-text-primary font-medium truncate">{a.name}</p>
+                          <p className="text-jb-text-secondary text-xs">{a._count?.albums ?? 0} albums</p>
+                        </div>
                       </div>
+                      <div className="flex items-center gap-0.5">
+                      <EditBtn onClick={() => openEdit('artist', a)} />
                       <button
                         onClick={() => handleDeleteArtist(a.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
+                        className="opacity-60 hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
                         title="Deactivate"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -469,23 +608,29 @@ export const SongsAdminPage: React.FC = () => {
               <div className="grid grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3 gap-3">
                 {albums.map(a => (
                   <Card key={a.id} className="p-4 cursor-pointer hover:border-jb-accent-purple/30 transition-colors group">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0" onClick={() => loadAlbumSongs(a)}>
-                        <p className="text-jb-text-primary font-medium">{a.name}</p>
-                        <p className="text-jb-text-secondary text-xs">
-                          {a.year && <span>{a.year} · </span>}
-                          {a._count?.songs ?? 0} songs
-                        </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0 flex items-center gap-3" onClick={() => loadAlbumSongs(a)}>
+                        <Cover url={a.coverArtUrl} />
+                        <div className="min-w-0">
+                          <p className="text-jb-text-primary font-medium truncate">{a.name}</p>
+                          <p className="text-jb-text-secondary text-xs">
+                            {a.year && <span>{a.year} · </span>}
+                            {a._count?.songs ?? 0} songs
+                          </p>
+                        </div>
                       </div>
+                      <div className="flex items-center gap-0.5">
+                      <EditBtn onClick={() => openEdit('album', a)} />
                       <button
                         onClick={() => handleDeleteAlbum(a.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
+                        className="opacity-60 hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
                         title="Deactivate"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -507,9 +652,10 @@ export const SongsAdminPage: React.FC = () => {
                         <p className="text-jb-text-primary text-sm font-medium truncate">{song.title}</p>
                         <p className="text-jb-text-secondary text-xs truncate">{song.artist} · {formatDuration(song.duration)}</p>
                       </div>
+                      <EditBtn onClick={() => openEditSong(song)} />
                       <button
                         onClick={() => handleDeleteSong(song.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
+                        className="opacity-60 hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-500/10 text-jb-text-secondary hover:text-red-400"
                         title="Delete"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -533,8 +679,17 @@ export const SongsAdminPage: React.FC = () => {
                   <div key={song.id} className="relative group">
                     <SongCard title={song.title} artist={song.artist} duration={formatDuration(song.duration)} />
                     <button
+                      onClick={() => openEditSong(song as unknown as { id: string; title: string; artist: string; album?: string; genre?: string })}
+                      className="absolute top-2 right-10 opacity-60 hover:opacity-100 transition-opacity bg-jb-accent-green/20 rounded-full p-1.5 hover:bg-jb-accent-green/40"
+                      title="Edit"
+                    >
+                      <svg className="w-4 h-4 text-jb-accent-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
                       onClick={() => handleDeleteSong(song.id)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-jb-highlight-pink/20 rounded-full p-1.5 hover:bg-jb-highlight-pink/40"
+                      className="absolute top-2 right-2 opacity-60 hover:opacity-100 transition-opacity bg-jb-highlight-pink/20 rounded-full p-1.5 hover:bg-jb-highlight-pink/40"
                     >
                       <svg className="w-4 h-4 text-jb-highlight-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -736,6 +891,74 @@ export const SongsAdminPage: React.FC = () => {
           >
             {uploading ? 'Uploading...' : 'Upload Song'}
           </Button>
+        </div>
+      </Modal>
+
+      {/* ========== EDIT (rename + cover) MODAL ========== */}
+      <Modal
+        isOpen={editType !== null}
+        onClose={closeEdit}
+        title={editType ? `Edit ${editType.charAt(0).toUpperCase()}${editType.slice(1)}` : 'Edit'}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Cover url={editForm.coverArtUrl} size={72} />
+            <div className="flex-1">
+              <input ref={coverInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverFile} className="hidden" />
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" loading={coverUploading} onClick={() => coverInputRef.current?.click()}>
+                  {editForm.coverArtUrl ? 'Change cover' : 'Upload cover'}
+                </Button>
+                {editForm.coverArtUrl && (
+                  <button
+                    onClick={() => setEditForm(p => ({ ...p, coverArtUrl: null }))}
+                    className="text-jb-text-secondary hover:text-jb-highlight-pink text-xs"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <p className="text-jb-text-secondary text-xs mt-1">JPG / PNG / WebP, max 5MB</p>
+            </div>
+          </div>
+          <Input label="Name" value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
+          {editType === 'album' && (
+            <Input
+              label="Year"
+              type="number"
+              value={editForm.year ? String(editForm.year) : ''}
+              onChange={e => setEditForm(p => ({ ...p, year: parseInt(e.target.value) || undefined }))}
+            />
+          )}
+          {formError && <p className="text-red-400 text-sm">{formError}</p>}
+          <Button variant="primary" fullWidth loading={saving} onClick={handleSaveEdit}>Save Changes</Button>
+        </div>
+      </Modal>
+
+      {/* ========== EDIT SONG (move genre / rename) MODAL ========== */}
+      <Modal isOpen={showEditSong} onClose={() => setShowEditSong(false)} title="Edit Song">
+        <div className="space-y-4">
+          <Input label="Title" value={songEditForm.title} onChange={e => setSongEditForm(p => ({ ...p, title: e.target.value }))} />
+          <Input label="Artist" value={songEditForm.artist} onChange={e => setSongEditForm(p => ({ ...p, artist: e.target.value }))} />
+          <Input label="Album" value={songEditForm.album} onChange={e => setSongEditForm(p => ({ ...p, album: e.target.value }))} />
+          <div>
+            <label className="block text-jb-text-secondary text-sm mb-1">Genre (folder)</label>
+            <select
+              value={songEditForm.genre}
+              onChange={e => setSongEditForm(p => ({ ...p, genre: e.target.value }))}
+              className="w-full bg-jb-bg-secondary border border-white/10 rounded-lg px-3 py-2.5 text-jb-text-primary text-sm focus:outline-none focus:border-jb-accent-green"
+            >
+              {songEditForm.genre && !genres.some(g => g.name === songEditForm.genre) && (
+                <option value={songEditForm.genre}>{songEditForm.genre} (current)</option>
+              )}
+              {genres.map(g => (
+                <option key={g.id} value={g.name}>{g.name}</option>
+              ))}
+            </select>
+            <p className="text-jb-text-secondary text-xs mt-1">Pick the genre folder this song should live in.</p>
+          </div>
+          {formError && <p className="text-red-400 text-sm">{formError}</p>}
+          <Button variant="primary" fullWidth loading={saving} onClick={handleSaveSong}>Save Song</Button>
         </div>
       </Modal>
     </div>

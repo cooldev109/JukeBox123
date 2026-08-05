@@ -94,20 +94,31 @@ songRouter.get('/genres', async (req: Request, res: Response, next: NextFunction
   try {
     const params = listGenresSchema.parse(req.query);
 
-    const where: Prisma.SongWhereInput = { isActive: true };
+    // The genre list is driven by the admin-curated Genre table so the customer
+    // sees exactly the genres the admin manages (no raw ID3 junk genres). We
+    // only surface curated genres that actually have at least one active song.
+    const [genreRows, songGenres] = await Promise.all([
+      prisma.genre.findMany({
+        where: { isActive: true },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        select: { name: true },
+      }),
+      prisma.song.findMany({
+        where: { isActive: true },
+        select: { genre: true },
+        distinct: ['genre'],
+      }),
+    ]);
+
+    const songGenreSet = new Set(songGenres.map((s) => s.genre.toLowerCase()));
+    let genreList = genreRows
+      .map((g) => g.name)
+      .filter((name) => songGenreSet.has(name.toLowerCase()));
 
     if (params.query) {
-      where.genre = { contains: params.query, mode: 'insensitive' };
+      const q = params.query.toLowerCase();
+      genreList = genreList.filter((name) => name.toLowerCase().includes(q));
     }
-
-    const genres = await prisma.song.findMany({
-      where,
-      select: { genre: true },
-      distinct: ['genre'],
-      orderBy: { genre: 'asc' },
-    });
-
-    const genreList = genres.map((g) => g.genre);
 
     res.json({
       success: true,
@@ -234,11 +245,78 @@ songRouter.put('/requests/:id/handled', requireAuth, requireRole('ADMIN'), async
 });
 
 // ============================================
+// Helper: persist an embedded cover image to /uploads/covers
+// ============================================
+function saveCoverImage(data: Buffer | Uint8Array, format: string): string {
+  const ext = format.includes('png')
+    ? 'png'
+    : format.includes('webp')
+      ? 'webp'
+      : 'jpg';
+  const coversDir = path.join(process.cwd(), 'uploads', 'covers');
+  if (!fs.existsSync(coversDir)) {
+    fs.mkdirSync(coversDir, { recursive: true });
+  }
+  const name = `${crypto.randomUUID()}.${ext}`;
+  fs.writeFileSync(path.join(coversDir, name), Buffer.from(data));
+  return `/uploads/covers/${name}`;
+}
+
+// ============================================
+// Helper: upsert the Genre > Artist > Album hierarchy so an uploaded song
+// lands in the correct "folder" and appears in the catalog tree (not only
+// the flat list). Album falls back to "Singles" when the file has no album.
+// ============================================
+async function buildCatalogHierarchy(opts: {
+  genre: string;
+  artist: string;
+  album?: string | null;
+  coverArtUrl?: string | null;
+}): Promise<string> {
+  const genreName = opts.genre?.trim() || 'Other';
+  const artistName = opts.artist.trim();
+  const albumName = opts.album?.trim() || 'Singles';
+
+  let genre = await prisma.genre.findUnique({ where: { name: genreName } });
+  if (!genre) {
+    genre = await prisma.genre.create({ data: { name: genreName } });
+  }
+
+  let artist = await prisma.artist.findFirst({
+    where: { name: artistName, genreId: genre.id },
+  });
+  if (!artist) {
+    artist = await prisma.artist.create({
+      data: { name: artistName, genreId: genre.id },
+    });
+  }
+
+  let album = await prisma.album.findFirst({
+    where: { name: albumName, artistId: artist.id },
+  });
+  if (!album) {
+    album = await prisma.album.create({
+      data: { name: albumName, artistId: artist.id, coverArtUrl: opts.coverArtUrl || null },
+    });
+  } else if (opts.coverArtUrl && !album.coverArtUrl) {
+    // Backfill the album cover from the first tagged song that carries one.
+    album = await prisma.album.update({
+      where: { id: album.id },
+      data: { coverArtUrl: opts.coverArtUrl },
+    });
+  }
+
+  return album.id;
+}
+
+// ============================================
 // POST /songs/upload — Admin uploads an MP3 file
+// Optional body fields `genre`, `artist`, `album` (e.g. from folder names)
+// override the ID3 tags and decide where the song is filed.
 // ============================================
 songRouter.post('/upload', requireAuth, requireRole('ADMIN'), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { file, title, artist, album, genre } = req.body;
+    const { file, filename, title, artist, album, genre } = req.body;
 
     if (!file) {
       throw new AppError('File (base64-encoded MP3) is required', 400);
@@ -259,28 +337,24 @@ songRouter.post('/upload', requireAuth, requireRole('ADMIN'), async (req: Reques
       throw new AppError('Invalid file format. Only MP3 files are accepted', 400);
     }
 
-    // Create uploads/music directory
-    const musicDir = path.join(process.cwd(), 'uploads', 'music');
-    if (!fs.existsSync(musicDir)) {
-      fs.mkdirSync(musicDir, { recursive: true });
-    }
-
-    // Save file with UUID filename
-    const fileName = `${crypto.randomUUID()}.mp3`;
-    const filePath = path.join(musicDir, fileName);
-    fs.writeFileSync(filePath, fileBuffer);
-
-    // Try to extract metadata from the MP3 file
+    // Extract metadata from the buffer FIRST (before writing to disk) so we can
+    // dedupe and read the embedded cover art without leaving orphan files.
+    // Folder-derived genre/artist/album (passed in the body) take priority.
     let extractedTitle = title || null;
     let extractedArtist = artist || null;
     let extractedAlbum = album || null;
     let extractedGenre = genre || null;
     let extractedDuration = 0;
+    let trackNumber: number | null = null;
+    let coverPicture: { data: Uint8Array; format: string } | null = null;
 
     try {
-      // @ts-expect-error — music-metadata is an optional dependency
       const mm = await import('music-metadata');
-      const metadata = await mm.parseBuffer(fileBuffer, { mimeType: 'audio/mpeg' });
+      const metadata = await mm.parseBuffer(
+        fileBuffer,
+        { mimeType: 'audio/mpeg' },
+        { duration: true },
+      );
       if (!extractedTitle && metadata.common.title) {
         extractedTitle = metadata.common.title;
       }
@@ -290,17 +364,30 @@ songRouter.post('/upload', requireAuth, requireRole('ADMIN'), async (req: Reques
       if (!extractedAlbum && metadata.common.album) {
         extractedAlbum = metadata.common.album;
       }
-      if (!extractedGenre && metadata.common.genre && metadata.common.genre.length > 0) {
-        extractedGenre = metadata.common.genre[0];
-      }
+      // NOTE: we deliberately do NOT read the genre from ID3 tags — they are
+      // wildly inconsistent ("Alternative Metal", "Arrocha", …) and created a
+      // mess of junk genres. Genre is controlled by the admin: the folder name
+      // or the upload form decides it, otherwise it falls back to "Other".
       if (metadata.format.duration) {
         extractedDuration = Math.round(metadata.format.duration);
+      }
+      if (metadata.common.track && metadata.common.track.no) {
+        trackNumber = metadata.common.track.no;
+      }
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        const pic = metadata.common.picture[0];
+        coverPicture = { data: pic.data, format: pic.format };
       }
     } catch {
       // music-metadata not available or parsing failed — use provided fields
     }
 
-    // Fallbacks if metadata extraction did not fill the fields
+    // Fallbacks if metadata extraction did not fill the fields.
+    // Prefer the original filename (sent by the uploader) over "Untitled"
+    // so untagged MP3s still arrive in the catalog with a recognisable name.
+    if (!extractedTitle && filename && typeof filename === 'string') {
+      extractedTitle = filename.replace(/\.[^/.]+$/, '').trim() || null;
+    }
     if (!extractedTitle) {
       extractedTitle = 'Untitled';
     }
@@ -314,6 +401,51 @@ songRouter.post('/upload', requireAuth, requireRole('ADMIN'), async (req: Reques
       extractedDuration = 0;
     }
 
+    // Skip exact duplicates (same title + artist) so repeated folder uploads
+    // don't pile up copies. Only when we actually resolved real names.
+    if (extractedTitle !== 'Untitled' && extractedArtist !== 'Unknown Artist') {
+      const dup = await prisma.song.findFirst({
+        where: { title: extractedTitle, artist: extractedArtist, isActive: true },
+        select: { id: true },
+      });
+      if (dup) {
+        throw new AppError('Song already exists (duplicate)', 409);
+      }
+    }
+
+    // Persist the audio file
+    const musicDir = path.join(process.cwd(), 'uploads', 'music');
+    if (!fs.existsSync(musicDir)) {
+      fs.mkdirSync(musicDir, { recursive: true });
+    }
+    const fileName = `${crypto.randomUUID()}.mp3`;
+    fs.writeFileSync(path.join(musicDir, fileName), fileBuffer);
+
+    // Persist the embedded cover art, if the file carried one
+    let coverArtUrl: string | null = null;
+    if (coverPicture) {
+      try {
+        coverArtUrl = saveCoverImage(coverPicture.data, coverPicture.format);
+      } catch {
+        coverArtUrl = null;
+      }
+    }
+
+    // File the song into Genre > Artist > Album (only when we know the artist)
+    let albumId: string | null = null;
+    if (extractedArtist !== 'Unknown Artist') {
+      try {
+        albumId = await buildCatalogHierarchy({
+          genre: extractedGenre,
+          artist: extractedArtist,
+          album: extractedAlbum,
+          coverArtUrl,
+        });
+      } catch {
+        albumId = null;
+      }
+    }
+
     // Create Song record in database
     const song = await prisma.song.create({
       data: {
@@ -323,8 +455,11 @@ songRouter.post('/upload', requireAuth, requireRole('ADMIN'), async (req: Reques
         genre: extractedGenre,
         duration: extractedDuration,
         fileUrl: `/uploads/music/${fileName}`,
+        coverArtUrl,
         fileSize: fileBuffer.length,
         format: 'MP3',
+        albumId,
+        trackNumber,
         metadata: {} as Prisma.JsonObject,
       },
     });
@@ -559,6 +694,27 @@ songRouter.put('/:id', requireAuth, requireRole('ADMIN'), async (req: Request, r
     if (data.fileSize !== undefined) updateData.fileSize = data.fileSize;
     if (data.format !== undefined) updateData.format = data.format;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    // If genre / artist / album changed, re-file the song into the
+    // Genre > Artist > Album tree so the hierarchy view stays in sync.
+    if (data.genre !== undefined || data.artist !== undefined || data.album !== undefined) {
+      const finalArtist = (data.artist ?? existing.artist) || '';
+      const finalGenre = (data.genre ?? existing.genre) || 'Other';
+      const finalAlbum = data.album ?? existing.album;
+      if (finalArtist && finalArtist !== 'Unknown Artist') {
+        try {
+          const albumId = await buildCatalogHierarchy({
+            genre: finalGenre,
+            artist: finalArtist,
+            album: finalAlbum,
+            coverArtUrl: existing.coverArtUrl,
+          });
+          updateData.albumRef = { connect: { id: albumId } };
+        } catch {
+          // keep the existing filing if the tree could not be built
+        }
+      }
+    }
 
     const song = await prisma.song.update({
       where: { id },
